@@ -45,17 +45,22 @@ import {
 /* ================================ Globals ================================ */
 
 /* Scaling due to device pixel ratio */
-const onscreenPixelRatio = window.devicePixelRatio;
-const onscreenScaledWidth = onscreenPixelRatio * width;
-const onscreenScaledHeight = onscreenPixelRatio * height;
+const onscreenPixelRatio: number = window.devicePixelRatio;
+const onscreenScaledWidth: number = onscreenPixelRatio * width;
+const onscreenScaledHeight: number = onscreenPixelRatio * height;
 
 /* Onscreen canvas. Scaled based on pixel ratio. */
-export const onscreenCanvas = document.getElementById("mainCanvas");
+export const onscreenCanvas = document.getElementById(
+  "mainCanvas"
+) as HTMLCanvasElement;
+if (!onscreenCanvas) throw new Error("mainCanvas not found");
 onscreenCanvas.width = onscreenScaledWidth;
 onscreenCanvas.height = onscreenScaledHeight;
 onscreenCanvas.style.width = width + "px";
 onscreenCanvas.style.height = height + "px";
-const onscreenCtx = onscreenCanvas.getContext("2d", { alpha: false });
+const onscreenCtx = onscreenCanvas.getContext("2d", {
+  alpha: false,
+}) as CanvasRenderingContext2D;
 
 /*
  * Offscreen game canvas. Drawn at in-game resolution, then
@@ -64,37 +69,39 @@ const onscreenCtx = onscreenCanvas.getContext("2d", { alpha: false });
 const gameCanvas = document.createElement("canvas");
 gameCanvas.width = width;
 gameCanvas.height = height;
-const gameCtx = gameCanvas.getContext("2d");
+const gameCtx = gameCanvas.getContext("2d") as CanvasRenderingContext2D;
 const gameImagedata = gameCtx.createImageData(width, height);
 export const gameImagedata32 = new Uint32Array(gameImagedata.data.buffer);
 
 /* Storage for game save state. */
 const saveGameImagedata32 = new Uint32Array(gameImagedata32.length);
-var gamestateSaved = false;
+let gamestateSaved: boolean = false;
 
 /* Cached for performance */
-export const MAX_X_IDX = width - 1;
-export const MAX_Y_IDX = height - 1;
-export const MAX_IDX = width * height - 1;
+export const MAX_X_IDX: number = width - 1;
+export const MAX_Y_IDX: number = height - 1;
+export const MAX_IDX: number = width * height - 1;
 
 /* Globals for tracking and maintaining FPS */
-var fpsSetting; /* controlled via menu */
-var msPerFrame;
-var lastLoop = 0;
-var frameDebt = 0;
-var lastFPSLabelUpdate = 0;
-const refreshTimes = [];
+let fpsSetting: number; /* controlled via menu */
+let msPerFrame: number;
+let lastLoop: number = 0;
+let frameDebt: number = 0;
+let lastFPSLabelUpdate: number = 0;
+const refreshTimes: number[] = [];
 
 /* ========================================================================= */
 
-export function init() {
+export function init(): void {
   // Set game vars in elements.js and spigots.js to avoid circular dependency
-  setGameVars({ gameImagedata32, MAX_X_IDX, MAX_Y_IDX });
+  setGameVars({ gameImagedata32, MAX_X_IDX, MAX_Y_IDX, VOID_MODE_ENABLED: false });
   setSpigotGameVars({ gameImagedata32, MAX_X_IDX });
 
-  var gameWrapper = document.getElementById("gameWrapper");
-  gameWrapper.style.height = height + "px";
-  gameWrapper.style.width = width + "px";
+  const gameWrapper = document.getElementById("gameWrapper");
+  if (gameWrapper) {
+    gameWrapper.style.height = height + "px";
+    gameWrapper.style.width = width + "px";
+  }
 
   /* setting FPS must occur before initMenu() */
   setFPS(DEFAULT_FPS);
@@ -108,30 +115,30 @@ export function init() {
 
   /* Initialize imagedata */
   const len = gameImagedata32.length;
-  for (var i = 0; i < len; i++) {
+  for (let i = 0; i < len; i++) {
     gameImagedata32[i] = BACKGROUND;
     saveGameImagedata32[i] = BACKGROUND;
   }
 
   /* Nice crisp pixels, regardless of pixel ratio */
-  onscreenCtx.mozImageSmoothingEnabled = false;
+  (onscreenCtx as any).mozImageSmoothingEnabled = false;
   onscreenCtx.imageSmoothingEnabled = false;
-  onscreenCtx.webkitImageSmoothingEnabled = false;
-  onscreenCtx.msImageSmoothingEnabled = false;
-  onscreenCtx.oImageSmoothingEnabled = false;
+  (onscreenCtx as any).webkitImageSmoothingEnabled = false;
+  (onscreenCtx as any).msImageSmoothingEnabled = false;
+  (onscreenCtx as any).oImageSmoothingEnabled = false;
 }
 
-export function setFPS(fps) {
+export function setFPS(fps: number): void {
   fpsSetting = fps;
   if (fps > 0) msPerFrame = 1000.0 / fpsSetting;
   else drawFPSLabel(0);
 }
-function updateGame() {
+function updateGame(): void {
   updateSpigots();
   updateParticles();
 
-  var x, y;
-  var i = MAX_IDX;
+  let x: number, y: number;
+  let i = MAX_IDX;
   /*
    * Since i starts at MAX_IDX, we need to guarantee that we will start
    * our traversal by going to the left.
@@ -182,7 +189,7 @@ function updateGame() {
   frameDebt--;
 }
 
-function draw() {
+function draw(): void {
   gameCtx.putImageData(gameImagedata, 0, 0);
 
   /*
@@ -201,14 +208,14 @@ function draw() {
   );
 }
 
-function setGameCanvas(elem) {
+function setGameCanvas(elem: number): void {
   const iterEnd = MAX_IDX + 1;
-  for (var i = 0; i !== iterEnd; i++) {
+  for (let i = 0; i !== iterEnd; i++) {
     gameImagedata32[i] = elem;
   }
 }
 
-export function clearGameCanvas() {
+export function clearGameCanvas(): void {
   particles.inactivateAll();
   setGameCanvas(BACKGROUND);
 }
@@ -216,30 +223,30 @@ export function clearGameCanvas() {
 /*
  * Saves the current canvas state. Note that we don't also save particle state.
  */
-export function saveGameCanvas() {
+export function saveGameCanvas(): void {
   /*
    * Copy it manually, rather than use a slice, so that we can use a constant
    * global pointer.
    */
   const iterEnd = MAX_IDX + 1;
-  for (var i = 0; i !== iterEnd; i++)
+  for (let i = 0; i !== iterEnd; i++)
     saveGameImagedata32[i] = gameImagedata32[i];
 
   gamestateSaved = true;
 }
 
-export function loadGameCanvas() {
+export function loadGameCanvas(): void {
   if (!gamestateSaved) return;
 
   particles.inactivateAll();
 
   const iterEnd = MAX_IDX + 1;
-  for (var i = 0; i !== iterEnd; i++)
+  for (let i = 0; i !== iterEnd; i++)
     gameImagedata32[i] = saveGameImagedata32[i];
 }
 
 /* Signal that we've updated a game frame to our FPS counter */
-function perfRecordFrame() {
+function perfRecordFrame(): void {
   const now = performance.now();
   const oneSecondAgo = now - 1000;
   while (refreshTimes.length > 0 && refreshTimes[0] <= oneSecondAgo) {
@@ -253,7 +260,7 @@ function perfRecordFrame() {
   }
 }
 
-function mainLoop(now) {
+function mainLoop(now: number): void {
   window.requestAnimationFrame(mainLoop);
 
   /* Handle initial update */
@@ -296,7 +303,7 @@ function mainLoop(now) {
     updateUserStroke();
   }
 
-  var framesUpdated = 0;
+  let framesUpdated = 0;
   if (frameDebt >= 1) {
     if (frameDebt == 1) {
       /* shortcut for the common case of a single-frame update */
@@ -314,7 +321,7 @@ function mainLoop(now) {
        * This is very rough and could be improved.
        */
       const loopMiscTimeMs = 3.5;
-      var timeRemaining = deltaMs - loopMiscTimeMs - updateTimeMs;
+      let timeRemaining = deltaMs - loopMiscTimeMs - updateTimeMs;
       while (timeRemaining > updateTimeMs && frameDebt >= 1) {
         updateGame();
         timeRemaining -= updateTimeMs;
@@ -331,7 +338,8 @@ function mainLoop(now) {
   draw();
 }
 
-window.onload = function () {
+window.onload = function (): void {
   init();
   mainLoop(0);
 };
+

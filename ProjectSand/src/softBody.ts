@@ -42,8 +42,7 @@ import {
   ZOMBIE_FROZEN,
 } from "./elements.js";
 
-export const softBodyEngine =
-  Matter.Engine.create(); /* The global matter.js engine */
+export const softBodyEngine = Matter.Engine.create(); /* The global matter.js engine */
 
 /*
  * Offscreen canvas for drawing soft body animations. We draw on
@@ -53,60 +52,63 @@ export const softBodyEngine =
 const softBodyCanvas = document.createElement("canvas");
 softBodyCanvas.width = width;
 softBodyCanvas.height = height;
-export const softBodyCtx = softBodyCanvas.getContext("2d", { alpha: false });
+export const softBodyCtx = softBodyCanvas.getContext("2d", {
+  alpha: false,
+  willReadFrequently: true,
+}) as CanvasRenderingContext2D;
 
 /*
  * Globals for handling mouse interaction (ie. dragging the
  * soft bodies).
  */
-export var softBodyDragStart = 0; /* timestamp in milliseconds */
-var softBodyFreeDrag = false; /* whether the dragged body should ignore collisions with canvas elements */
-export function getSoftBodyFreeDrag() {
+export let softBodyDragStart: number = 0; /* timestamp in milliseconds */
+let softBodyFreeDrag: boolean = false; /* whether the dragged body should ignore collisions with canvas elements */
+export function getSoftBodyFreeDrag(): boolean {
   return softBodyFreeDrag;
 }
-export function setSoftBodyFreeDrag(value) {
+export function setSoftBodyFreeDrag(value: boolean): void {
   softBodyFreeDrag = value;
 }
-export var softBodyMouse;
-export var softBodyMouseConstraint;
+export let softBodyMouse: any; // Matter.Mouse type
+export let softBodyMouseConstraint: any; // Matter.MouseConstraint type
 
 /* ======================= game.js API ====================== */
 
 /* Initialize all soft body elements */
-export function initSoftBody() {
+export function initSoftBody(): void {
   softBodyEngine.gravity.scale = 0.0002; /* library default is 0.001 */
 
   /*
    * These are the 4 walls that bound the animation to the canvas frame
    */
-  const wallDepth = 60; /* a fairly arbitrary value, to prevent clipping */
+  const wallDepth: number = 60; /* a fairly arbitrary value, to prevent clipping */
   const categoryIgnoreMouse = Matter.Body.nextCategory();
   const options = {
     isStatic: true,
     collisionFilter: { category: categoryIgnoreMouse },
   };
-  var topWall = Matter.Bodies.rectangle(
+  const topWall = Matter.Bodies.rectangle(
     width / 2,
     -wallDepth / 2,
     width * 1.2,
     wallDepth,
     options
   );
-  var bottomWall = Matter.Bodies.rectangle(
+  const bottomWall = Matter.Bodies.rectangle(
     width / 2,
     height + wallDepth / 2,
     width * 1.2,
     wallDepth,
     options
   );
-  var leftWall = Matter.Bodies.rectangle(
+  const leftWall = Matter.Bodies.rectangle(
     -wallDepth / 2,
     height / 2,
     wallDepth,
     height * 1.2,
     options
   );
-  var rightWall = Matter.Bodies.rectangle(
+  const rightWall = Matter.Bodies.rectangle(
     width + wallDepth / 2,
     height / 2,
     wallDepth,
@@ -124,7 +126,9 @@ export function initSoftBody() {
   /*
    * Add mouse handler to allow user to drag soft bodies around.
    */
-  softBodyMouse = Matter.Mouse.create(document.getElementById("mainCanvas"));
+  const mainCanvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
+  if (!mainCanvas) throw new Error("mainCanvas not found");
+  softBodyMouse = Matter.Mouse.create(mainCanvas);
   softBodyMouseConstraint = Matter.MouseConstraint.create(softBodyEngine, {
     mouse: softBodyMouse,
     constraint: {
@@ -149,7 +153,7 @@ export function initSoftBody() {
   });
   Matter.Composite.add(softBodyEngine.world, [softBodyMouseConstraint]);
 
-  Matter.Events.on(softBodyMouseConstraint, "startdrag", (_event) => {
+  Matter.Events.on(softBodyMouseConstraint, "startdrag", (_event: any) => {
     softBodyDragStart = Date.now();
     setSoftBodyFreeDrag(false);
   });
@@ -157,16 +161,16 @@ export function initSoftBody() {
    * Note: this fires for all mouse up events, even when we weren't
    * previously dragging.
    */
-  Matter.Events.on(softBodyMouseConstraint, "mouseup", (_event) => {
+  Matter.Events.on(softBodyMouseConstraint, "mouseup", (_event: any) => {
     softBodyDragStart = 0;
   });
 }
 
 /* Advance the animation of all soft bodies by the given amount of milliseconds */
-export function softBodyAnimate(milliseconds) {
+export function softBodyAnimate(milliseconds: number): void {
   const now = Date.now();
   const numZombies = zombies.length;
-  for (var i = 0; i < numZombies; i++) {
+  for (let i = 0; i < numZombies; i++) {
     zombies[i].animate(now, i, milliseconds);
   }
 
@@ -174,15 +178,15 @@ export function softBodyAnimate(milliseconds) {
 }
 
 /* Render all soft bodies onto the main canvas */
-export function softBodyRender() {
-  var normalZombies = [];
-  var wetZombies = [];
-  var burningZombies = [];
-  var frozenZombies = [];
+export function softBodyRender(): void {
+  const normalZombies: any[] = [];
+  const wetZombies: any[] = [];
+  const burningZombies: any[] = [];
+  const frozenZombies: any[] = [];
 
   const numZombies = zombies.length;
-  for (var i = 0; i < numZombies; i++) {
-    var zombie = zombies[i];
+  for (let i = 0; i < numZombies; i++) {
+    const zombie = zombies[i];
     const state = zombie.state;
     if (state === ZOMBIE_STATE_NORMAL) {
       normalZombies.push(zombie);
@@ -193,7 +197,7 @@ export function softBodyRender() {
     } else if (state === ZOMBIE_STATE_FROZEN) {
       frozenZombies.push(zombie);
     } else {
-      throw "unexpected state";
+      throw new Error("unexpected state");
     }
   }
 
@@ -214,14 +218,15 @@ export function softBodyRender() {
 /* ======================= Soft Body APIs ====================== */
 
 /* Draw the given matter.js body onto the provided `ctx`. */
-export function drawBody(ctx, body) {
+export function drawBody(ctx: CanvasRenderingContext2D, body: any): void {
   const vertices = body.vertices;
 
   ctx.moveTo(vertices[0].x, vertices[0].y);
 
-  for (var j = 1; j < vertices.length; j += 1) {
+  for (let j = 1; j < vertices.length; j += 1) {
     ctx.lineTo(vertices[j].x, vertices[j].y);
   }
 
   ctx.lineTo(vertices[0].x, vertices[0].y);
 }
+

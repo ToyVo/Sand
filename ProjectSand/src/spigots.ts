@@ -35,14 +35,18 @@ import { width, height } from "./canvasConfig.js";
 import { random } from "./util.js";
 
 // These will be set by game.js after initialization to avoid circular dependency
-let gameImagedata32, MAX_X_IDX;
-export function setSpigotGameVars(vars) {
+let gameImagedata32: Uint32Array;
+let MAX_X_IDX: number;
+export function setSpigotGameVars(vars: {
+  gameImagedata32: Uint32Array;
+  MAX_X_IDX: number;
+}): void {
   gameImagedata32 = vars.gameImagedata32;
   MAX_X_IDX = vars.MAX_X_IDX;
 }
 
 /* Menu options for the spigots */
-export const SPIGOT_ELEMENT_OPTIONS = [
+export const SPIGOT_ELEMENT_OPTIONS: number[] = [
   SAND,
   WATER,
   SALT,
@@ -56,41 +60,41 @@ export const SPIGOT_ELEMENT_OPTIONS = [
   ACID,
   MYSTERY,
 ];
-export const SPIGOT_SIZE_OPTIONS = [0, 5, 10, 15, 20, 25];
-export const DEFAULT_SPIGOT_SIZE_IDX = 1;
+export const SPIGOT_SIZE_OPTIONS: number[] = [0, 5, 10, 15, 20, 25];
+export const DEFAULT_SPIGOT_SIZE_IDX: number = 1;
 
 /* Type and size of each spigot. Controlled via the menu. */
-export const SPIGOT_ELEMENTS = [SAND, WATER, SALT, OIL];
-export const SPIGOT_SIZES = [];
+export const SPIGOT_ELEMENTS: number[] = [SAND, WATER, SALT, OIL];
+export const SPIGOT_SIZES: number[] = [];
 
-export const SPIGOT_HEIGHT = 10;
-export const MAX_SPIGOT_WIDTH = Math.max(...SPIGOT_SIZE_OPTIONS);
-export const NUM_SPIGOTS = SPIGOT_ELEMENTS.length;
-export const SPIGOT_SPACING = Math.round(
+export const SPIGOT_HEIGHT: number = 10;
+export const MAX_SPIGOT_WIDTH: number = Math.max(...SPIGOT_SIZE_OPTIONS);
+export const NUM_SPIGOTS: number = SPIGOT_ELEMENTS.length;
+export const SPIGOT_SPACING: number = Math.round(
   (width - MAX_SPIGOT_WIDTH * NUM_SPIGOTS) / (NUM_SPIGOTS + 1) +
     MAX_SPIGOT_WIDTH
 );
-export const SPIGOTS_ENABLED =
+export const SPIGOTS_ENABLED: boolean =
   MAX_SPIGOT_WIDTH * NUM_SPIGOTS <= width && SPIGOT_HEIGHT <= height;
 
-export function initSpigots() {
+export function initSpigots(): void {
   const defaultSize = SPIGOT_SIZE_OPTIONS[DEFAULT_SPIGOT_SIZE_IDX];
-  for (var i = 0; i !== NUM_SPIGOTS; i++) {
+  for (let i = 0; i !== NUM_SPIGOTS; i++) {
     SPIGOT_SIZES.push(defaultSize);
   }
 }
 
-export function updateSpigots() {
+export function updateSpigots(): void {
   if (!SPIGOTS_ENABLED) return;
 
-  var i, w, h;
+  let i: number, w: number, h: number;
   for (i = 0; i !== NUM_SPIGOTS; i++) {
     const elem = SPIGOT_ELEMENTS[i];
     const spigotLeft = SPIGOT_SPACING * (i + 1) - MAX_SPIGOT_WIDTH;
     const spigotRight = spigotLeft + SPIGOT_SIZES[i];
     if (spigotLeft < 0) continue;
     if (spigotRight > MAX_X_IDX) break;
-    var heightOffset = 0;
+    let heightOffset = 0;
     for (h = 0; h !== SPIGOT_HEIGHT; h++) {
       for (w = spigotLeft; w !== spigotRight; w++) {
         if (random() < 10) gameImagedata32[w + heightOffset] = elem;
@@ -99,3 +103,4 @@ export function updateSpigots() {
     }
   }
 }
+

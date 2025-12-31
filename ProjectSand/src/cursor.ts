@@ -33,27 +33,27 @@ import { softBodyMouse } from "./softBody.js";
 /*
  * Cursor options. Controlled via the menu.
  */
-var PENSIZE;
-var SELECTED_ELEM;
-var OVERWRITE_ENABLED;
+let PENSIZE: number;
+let SELECTED_ELEM: number;
+let OVERWRITE_ENABLED: boolean;
 
 // Export getters and setters since ES modules don't allow reassigning imports
-export function getPENSIZE() {
+export function getPENSIZE(): number {
   return PENSIZE;
 }
-export function setPENSIZE(value) {
+export function setPENSIZE(value: number): void {
   PENSIZE = value;
 }
-export function getSELECTED_ELEM() {
+export function getSELECTED_ELEM(): number {
   return SELECTED_ELEM;
 }
-export function setSELECTED_ELEM(value) {
+export function setSELECTED_ELEM(value: number): void {
   SELECTED_ELEM = value;
 }
-export function getOVERWRITE_ENABLED() {
+export function getOVERWRITE_ENABLED(): boolean {
   return OVERWRITE_ENABLED;
 }
-export function setOVERWRITE_ENABLED(value) {
+export function setOVERWRITE_ENABLED(value: boolean): void {
   OVERWRITE_ENABLED = value;
 }
 
@@ -67,13 +67,28 @@ export function setOVERWRITE_ENABLED(value) {
 const userstrokeCanvas = document.createElement("canvas");
 userstrokeCanvas.width = width;
 userstrokeCanvas.height = height;
-const userstrokeCtx = userstrokeCanvas.getContext("2d", { alpha: false });
+const userstrokeCtx = userstrokeCanvas.getContext("2d", {
+  alpha: false,
+  willReadFrequently: true,
+}) as CanvasRenderingContext2D;
 
-const CURSORS = [];
+const CURSORS: Cursor[] = [];
 
 /* Generic cursor */
 class Cursor {
-  constructor(canvas) {
+  x: number;
+  y: number;
+  prevX: number;
+  prevY: number;
+  initX: number;
+  initY: number;
+  documentX: number;
+  documentY: number;
+  isDown: boolean;
+  inCanvas: boolean;
+  canvas: HTMLCanvasElement;
+
+  constructor(canvas: HTMLCanvasElement) {
     /* x, y, prevX, and prevY are coordinates *inside* the canvas */
     this.x = 0;
     this.y = 0;
@@ -94,7 +109,7 @@ class Cursor {
     this.canvas = canvas;
   }
 
-  notifyCursorUp() {
+  notifyCursorUp(): void {
     /*
      * If drawStroke() adjusted the mouse offset, we need to move it back.
      */
@@ -103,7 +118,7 @@ class Cursor {
     }
   }
 
-  canvasCursorDown(x, y) {
+  canvasCursorDown(x: number, y: number): void {
     this.isDown = true;
     this.inCanvas = true;
 
@@ -115,7 +130,7 @@ class Cursor {
     this.initY = y;
   }
 
-  canvasCursorMove(getPos) {
+  canvasCursorMove(getPos: () => [number, number]): void {
     if (!this.isDown) return;
 
     const pos = getPos();
@@ -124,7 +139,10 @@ class Cursor {
     this.y = pos[1];
   }
 
-  canvasCursorEnter(getInnerCoords, getOuterCoords) {
+  canvasCursorEnter(
+    getInnerCoords: (self: Cursor) => [number, number],
+    getOuterCoords: (self: Cursor) => [number, number]
+  ): void {
     this.inCanvas = true;
 
     if (!this.isDown) return;
@@ -140,7 +158,9 @@ class Cursor {
     this.y = innerCoords[1];
   }
 
-  canvasCursorLeave(getOuterCoords) {
+  canvasCursorLeave(
+    getOuterCoords: (self: Cursor) => [number, number]
+  ): void {
     this.inCanvas = false;
 
     if (!this.isDown) return;
@@ -155,7 +175,7 @@ class Cursor {
     this.y = outerCoords[1];
   }
 
-  documentCursorMove(getPos) {
+  documentCursorMove(getPos: () => [number, number]): void {
     if (!this.isDown) return;
     if (this.inCanvas) return;
 
@@ -164,12 +184,15 @@ class Cursor {
     this.documentY = pos[1];
   }
 
-  documentCursorUp() {
+  documentCursorUp(): void {
     this.isDown = false;
     this.notifyCursorUp();
   }
 
-  documentCursorDown(e, getPos) {
+  documentCursorDown(
+    e: MouseEvent,
+    getPos: (self: Cursor) => [number, number]
+  ): void {
     if (e.target == onscreenCanvas) return;
     if (this.isDown) return;
 
@@ -191,7 +214,7 @@ class Cursor {
     this.documentY = pos[1];
   }
 
-  documentVisibilityChange(_e) {}
+  documentVisibilityChange(_e: Event): void {}
 
   /*
    * Given that the cursor moved from coordinates outside the canvas
@@ -202,10 +225,13 @@ class Cursor {
    *
    * Note that outercoords is relative to the canvas, not the document.
    */
-  static interpolateCursorBorderPosition(innercoords, outercoords) {
+  static interpolateCursorBorderPosition(
+    innercoords: [number, number],
+    outercoords: [number, number]
+  ): [number, number] {
     /* Get line parameters */
-    var dy = innercoords[1] - outercoords[1];
-    var dx = innercoords[0] - outercoords[0];
+    let dy = innercoords[1] - outercoords[1];
+    let dx = innercoords[0] - outercoords[0];
     if (dy === 0) dy = 0.001;
     if (dx === 0) dx = 0.001;
     const slope = dy / dx;
@@ -246,7 +272,7 @@ class Cursor {
    * translate the cursor stroke into its proper position on
    * the main canvas.
    */
-  drawStroke() {
+  drawStroke(): void {
     if (!this.isDown) return;
     if (!this.inCanvas) {
       if (this.prevX === this.x && this.prevY === this.y) return;
@@ -349,7 +375,7 @@ class Cursor {
     const strokeImageData32 = new Uint32Array(strokeImageData.data.buffer);
 
     /* Transfer line from offscreen canvas to main canvas */
-    var x, y;
+    let x: number, y: number;
     const xStart = Math.max(0, -1 * x_translate);
     const yStart = Math.max(0, -1 * y_translate);
     const xTerminate = Math.min(userstroke_width, width - x_translate);
@@ -386,7 +412,18 @@ class Cursor {
  * so we use MouseCursor.
  */
 class MouseCursor extends Cursor {
-  constructor(canvas) {
+  shiftStartX: number;
+  shiftStartY: number;
+  shiftPressed: boolean;
+  lineDirection: number; /* for use with shift key */
+
+  static NO_DIRECTION: number;
+  static HORIZONTAL: number;
+  static VERTICAL: number;
+  static DIAGONAL_UP: number;
+  static DIAGONAL_DOWN: number;
+
+  constructor(canvas: HTMLCanvasElement) {
     super(canvas);
 
     this.shiftStartX = 0;
@@ -395,7 +432,7 @@ class MouseCursor extends Cursor {
     this.lineDirection = MouseCursor.NO_DIRECTION; /* for use with shift key */
   }
 
-  canvasMouseDown(e) {
+  canvasMouseDown(e: MouseEvent): void {
     const mousePos = MouseCursor.getMousePos(e, true, this.canvas);
 
     /* Fix bug that left the canvas stuck in "shift" mode */
@@ -410,21 +447,21 @@ class MouseCursor extends Cursor {
     super.canvasCursorDown(mousePos[0], mousePos[1]);
   }
 
-  canvasMouseMove(e) {
+  canvasMouseMove(e: MouseEvent): void {
     const canvas = this.canvas;
-    const getPos = function () {
+    const getPos = function (): [number, number] {
       return MouseCursor.getMousePos(e, true, canvas);
     };
 
     super.canvasCursorMove(getPos);
   }
 
-  canvasMouseEnter(e) {
+  canvasMouseEnter(e: MouseEvent): void {
     const canvas = this.canvas;
-    const getInnerPos = function (_self) {
+    const getInnerPos = function (_self: Cursor): [number, number] {
       return MouseCursor.getMousePos(e, true, canvas);
     };
-    const getOuterPos = function (self) {
+    const getOuterPos = function (self: Cursor): [number, number] {
       return [self.documentX, self.documentY];
     };
 
@@ -444,27 +481,27 @@ class MouseCursor extends Cursor {
     }
   }
 
-  canvasMouseLeave(e) {
+  canvasMouseLeave(e: MouseEvent): void {
     const canvas = this.canvas;
-    const getOuterPos = function (_self) {
+    const getOuterPos = function (_self: Cursor): [number, number] {
       return MouseCursor.getMousePos(e, false, canvas);
     };
 
     super.canvasCursorLeave(getOuterPos);
   }
 
-  documentMouseMove(e) {
+  documentMouseMove(e: MouseEvent): void {
     if (e.target == onscreenCanvas) return;
 
     const canvas = this.canvas;
-    const getPos = function () {
+    const getPos = function (): [number, number] {
       return MouseCursor.getMousePos(e, false, canvas);
     };
 
     super.documentCursorMove(getPos);
   }
 
-  documentMouseUp(_e) {
+  documentMouseUp(_e: MouseEvent | null): void {
     /*
      * Don't use e, may be passed as null. Assigning here explicitly to avoid
      * bugs.
@@ -476,12 +513,12 @@ class MouseCursor extends Cursor {
     super.documentCursorUp();
   }
 
-  documentMouseDown(e) {
+  documentMouseDown(e: MouseEvent): void {
     /* only need handling when clicking outside the canvas */
     if (e.target == onscreenCanvas) return;
 
     const canvas = this.canvas;
-    const getPos = function () {
+    const getPos = function (self: Cursor): [number, number] {
       return MouseCursor.getMousePos(e, false, canvas);
     };
 
@@ -493,8 +530,12 @@ class MouseCursor extends Cursor {
     super.documentCursorDown(e, getPos);
   }
 
-  static getMousePos(e, withinCanvas, canvas) {
-    var x, y;
+  static getMousePos(
+    e: MouseEvent,
+    withinCanvas: boolean,
+    canvas: HTMLCanvasElement
+  ): [number, number] {
+    let x: number, y: number;
 
     if (withinCanvas) {
       x = e.offsetX;
@@ -513,7 +554,7 @@ class MouseCursor extends Cursor {
     return [Math.round(x), Math.round(y)];
   }
 
-  documentKeyDown(e) {
+  documentKeyDown(e: KeyboardEvent): void {
     if (!e.shiftKey) return;
 
     if (this.shiftPressed) return;
@@ -529,11 +570,11 @@ class MouseCursor extends Cursor {
     this.shiftStartY = this.y;
   }
 
-  documentKeyUp(e) {
+  documentKeyUp(e: KeyboardEvent): void {
     if (!e.shiftKey && this.shiftPressed) this.shiftPressed = false;
   }
 
-  documentVisibilityChange(e) {
+  documentVisibilityChange(e: Event): void {
     const visibilityState = document.visibilityState;
     if (visibilityState == "hidden") {
       this.documentMouseUp(null);
@@ -549,13 +590,13 @@ class MouseCursor extends Cursor {
    * If this returns true, skip drawing the stroke (we need
    * to figure out what direction the line is going).
    */
-  handleShift() {
+  handleShift(): boolean {
     if (!this.isDown) return false;
 
     if (!this.shiftPressed) return false;
 
     if (!this.inCanvas) {
-      if (this.prevX === this.x && this.prevY === this.y) return;
+      if (this.prevX === this.x && this.prevY === this.y) return false;
     }
 
     if (this.lineDirection === MouseCursor.NO_DIRECTION) {
@@ -610,7 +651,7 @@ class MouseCursor extends Cursor {
     return false;
   }
 
-  drawStroke() {
+  drawStroke(): void {
     /* alters prevX, prevY, x, and y to handle drawing in straight lines */
     if (this.handleShift()) return;
 
@@ -620,14 +661,14 @@ class MouseCursor extends Cursor {
 
 /* Touch cursor (ie. mobile users) */
 class TouchCursor extends Cursor {
-  constructor(canvas) {
+  constructor(canvas: HTMLCanvasElement) {
     super(canvas);
   }
 
-  canvasTouchStart(e) {
+  canvasTouchStart(e: TouchEvent): boolean {
     const pos = TouchCursor.getTouchPos(e);
 
-    if (!pos) return;
+    if (!pos) return false;
 
     super.canvasCursorDown(pos[0], pos[1]);
 
@@ -637,7 +678,7 @@ class TouchCursor extends Cursor {
     return false;
   }
 
-  canvasTouchEnd(e) {
+  canvasTouchEnd(e: TouchEvent): boolean {
     super.documentCursorUp();
 
     /* prevent scrolling */
@@ -646,12 +687,12 @@ class TouchCursor extends Cursor {
     return false;
   }
 
-  canvasTouchMove(e) {
+  canvasTouchMove(e: TouchEvent): boolean {
     const pos = TouchCursor.getTouchPos(e);
 
-    if (!pos) return;
+    if (!pos) return false;
 
-    const getPos = function () {
+    const getPos = function (): [number, number] {
       return pos;
     };
 
@@ -663,15 +704,15 @@ class TouchCursor extends Cursor {
     return false;
   }
 
-  static getTouchPos(e) {
+  static getTouchPos(e: TouchEvent): [number, number] | null {
     if (!e.touches) return null;
 
     const touch = e.touches[0];
     if (!touch) return null;
 
-    const rect = e.target.getBoundingClientRect();
-    var x = Math.round(touch.pageX - rect.left - window.scrollX);
-    var y = Math.round(touch.pageY - rect.top - window.scrollY);
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    let x = Math.round(touch.pageX - rect.left - window.scrollX);
+    let y = Math.round(touch.pageY - rect.top - window.scrollY);
 
     if (x < 0) x = 0;
     else if (x >= width) x = MAX_X_IDX;
@@ -683,7 +724,7 @@ class TouchCursor extends Cursor {
   }
 }
 
-export function initCursors() {
+export function initCursors(): void {
   setPENSIZE(PEN_SIZES[DEFAULT_PEN_IDX]);
   setSELECTED_ELEM(WALL);
   setOVERWRITE_ENABLED(true);
@@ -700,45 +741,45 @@ export function initCursors() {
    * to properly access the 'this' pointer.
    */
   const mouse = new MouseCursor(onscreenCanvas);
-  onscreenCanvas.onmousedown = function (e) {
+  onscreenCanvas.onmousedown = function (e: MouseEvent) {
     mouse.canvasMouseDown(e);
   };
-  onscreenCanvas.onmousemove = function (e) {
+  onscreenCanvas.onmousemove = function (e: MouseEvent) {
     mouse.canvasMouseMove(e);
   };
-  onscreenCanvas.onmouseleave = function (e) {
+  onscreenCanvas.onmouseleave = function (e: MouseEvent) {
     mouse.canvasMouseLeave(e);
   };
-  onscreenCanvas.onmouseenter = function (e) {
+  onscreenCanvas.onmouseenter = function (e: MouseEvent) {
     mouse.canvasMouseEnter(e);
   };
-  document.onmouseup = function (e) {
+  document.onmouseup = function (e: MouseEvent) {
     mouse.documentMouseUp(e);
   };
-  document.onmousedown = function (e) {
+  document.onmousedown = function (e: MouseEvent) {
     mouse.documentMouseDown(e);
   };
-  document.onmousemove = function (e) {
+  document.onmousemove = function (e: MouseEvent) {
     mouse.documentMouseMove(e);
   };
-  document.onkeydown = function (e) {
+  document.onkeydown = function (e: KeyboardEvent) {
     mouse.documentKeyDown(e);
   };
-  document.onkeyup = function (e) {
+  document.onkeyup = function (e: KeyboardEvent) {
     mouse.documentKeyUp(e);
   };
-  document.onvisibilitychange = function (e) {
+  document.onvisibilitychange = function (e: Event) {
     mouse.documentVisibilityChange(e);
   };
 
   const touchCursor = new TouchCursor(onscreenCanvas);
-  onscreenCanvas.addEventListener("touchstart", function (e) {
+  onscreenCanvas.addEventListener("touchstart", function (e: TouchEvent) {
     touchCursor.canvasTouchStart(e);
   });
-  onscreenCanvas.addEventListener("touchend", function (e) {
+  onscreenCanvas.addEventListener("touchend", function (e: TouchEvent) {
     touchCursor.canvasTouchEnd(e);
   });
-  onscreenCanvas.addEventListener("touchmove", function (e) {
+  onscreenCanvas.addEventListener("touchmove", function (e: TouchEvent) {
     touchCursor.canvasTouchMove(e);
   });
 
@@ -748,9 +789,10 @@ export function initCursors() {
 }
 
 /* Draw the userstroke on the stroke canvas */
-export function updateUserStroke() {
+export function updateUserStroke(): void {
   const numCursors = CURSORS.length;
-  for (var i = 0; i !== numCursors; i++) {
+  for (let i = 0; i !== numCursors; i++) {
     CURSORS[i].drawStroke();
   }
 }
+

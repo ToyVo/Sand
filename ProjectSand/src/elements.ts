@@ -35,12 +35,27 @@ import {
 import { width } from "./canvasConfig.js";
 import { MAX_IDX } from "./game.js";
 
-// These will be set by game.js after initialization to avoid circular dependency
-export let gameImagedata32, MAX_X_IDX, MAX_Y_IDX;
-export function setGameVars(vars) {
+// These will be set by game.ts after initialization to avoid circular dependency
+export let gameImagedata32: Uint32Array;
+export let MAX_X_IDX: number;
+export let MAX_Y_IDX: number;
+let VOID_MODE_ENABLED: boolean;
+export function getVOID_MODE_ENABLED(): boolean {
+  return VOID_MODE_ENABLED;
+}
+export function setVOID_MODE_ENABLED(value: boolean): void {
+  VOID_MODE_ENABLED = value;
+}
+export function setGameVars(vars: {
+  gameImagedata32: Uint32Array;
+  MAX_X_IDX: number;
+  MAX_Y_IDX: number;
+  VOID_MODE_ENABLED: boolean;
+}): void {
   gameImagedata32 = vars.gameImagedata32;
   MAX_X_IDX = vars.MAX_X_IDX;
   MAX_Y_IDX = vars.MAX_Y_IDX;
+  VOID_MODE_ENABLED = vars.VOID_MODE_ENABLED;
 }
 
 /*
@@ -85,8 +100,8 @@ export function setGameVars(vars) {
  * browers handle "ignoring alpha" differently, and this approach wasn't
  * supported on every browser.
  */
-var __next_elem_idx = 0;
-function __inGameColor(r, g, b) {
+let __next_elem_idx: number = 0;
+function __inGameColor(r: number, g: number, b: number): number {
   const alpha = 0xff000000;
   r = r & 0xfc;
   g = g & 0xfc;
@@ -105,48 +120,50 @@ function __inGameColor(r, g, b) {
   return alpha + (b << 16) + (g << 8) + r;
 }
 
+type ElementAction = (x: number, y: number, i: number) => void;
+
 /* Order here MUST match order in elements and elementActions arrays */
-export const BACKGROUND = __inGameColor(0, 0, 0);
-export const WALL = __inGameColor(127, 127, 127);
-export const SAND = __inGameColor(223, 193, 99);
-export const WATER = __inGameColor(0, 10, 255);
-export const PLANT = __inGameColor(0, 220, 0);
-export const FIRE = __inGameColor(255, 0, 10);
-export const SALT = __inGameColor(253, 253, 253);
-export const SALT_WATER = __inGameColor(127, 175, 255);
-export const OIL = __inGameColor(150, 60, 0);
-export const SPOUT = __inGameColor(117, 189, 252);
-export const WELL = __inGameColor(131, 11, 28);
-export const TORCH = __inGameColor(200, 5, 0);
-export const GUNPOWDER = __inGameColor(170, 170, 140);
-export const WAX = __inGameColor(239, 225, 211);
-export const FALLING_WAX = __inGameColor(240, 225, 211);
-export const NITRO = __inGameColor(0, 150, 26);
-export const NAPALM = __inGameColor(220, 128, 70);
-export const C4 = __inGameColor(240, 230, 150);
-export const CONCRETE = __inGameColor(180, 180, 180);
-export const FUSE = __inGameColor(219, 175, 199);
-export const ICE = __inGameColor(161, 232, 255);
-export const CHILLED_ICE = __inGameColor(20, 153, 220);
-export const LAVA = __inGameColor(245, 110, 40);
-export const ROCK = __inGameColor(68, 40, 8);
-export const STEAM = __inGameColor(195, 214, 235);
-export const CRYO = __inGameColor(0, 213, 255);
-export const MYSTERY = __inGameColor(162, 232, 196);
-export const METHANE = __inGameColor(140, 140, 140);
-export const SOIL = __inGameColor(120, 75, 33);
-export const WET_SOIL = __inGameColor(70, 35, 10);
-export const BRANCH = __inGameColor(166, 128, 100);
-export const LEAF = __inGameColor(82, 107, 45);
-export const POLLEN = __inGameColor(230, 235, 110);
-export const CHARGED_NITRO = __inGameColor(245, 98, 78);
-export const ACID = __inGameColor(157, 240, 40);
-export const THERMITE = __inGameColor(195, 140, 70);
-export const BURNING_THERMITE = __inGameColor(255, 130, 130);
-export const ZOMBIE = __inGameColor(236, 223, 245);
-export const ZOMBIE_WET = __inGameColor(236, 223, 245);
-export const ZOMBIE_BURNING = __inGameColor(250, 130, 130);
-export const ZOMBIE_FROZEN = __inGameColor(190, 190, 250);
+export const BACKGROUND: number = __inGameColor(0, 0, 0);
+export const WALL: number = __inGameColor(127, 127, 127);
+export const SAND: number = __inGameColor(223, 193, 99);
+export const WATER: number = __inGameColor(0, 10, 255);
+export const PLANT: number = __inGameColor(0, 220, 0);
+export const FIRE: number = __inGameColor(255, 0, 10);
+export const SALT: number = __inGameColor(253, 253, 253);
+export const SALT_WATER: number = __inGameColor(127, 175, 255);
+export const OIL: number = __inGameColor(150, 60, 0);
+export const SPOUT: number = __inGameColor(117, 189, 252);
+export const WELL: number = __inGameColor(131, 11, 28);
+export const TORCH: number = __inGameColor(200, 5, 0);
+export const GUNPOWDER: number = __inGameColor(170, 170, 140);
+export const WAX: number = __inGameColor(239, 225, 211);
+export const FALLING_WAX: number = __inGameColor(240, 225, 211);
+export const NITRO: number = __inGameColor(0, 150, 26);
+export const NAPALM: number = __inGameColor(220, 128, 70);
+export const C4: number = __inGameColor(240, 230, 150);
+export const CONCRETE: number = __inGameColor(180, 180, 180);
+export const FUSE: number = __inGameColor(219, 175, 199);
+export const ICE: number = __inGameColor(161, 232, 255);
+export const CHILLED_ICE: number = __inGameColor(20, 153, 220);
+export const LAVA: number = __inGameColor(245, 110, 40);
+export const ROCK: number = __inGameColor(68, 40, 8);
+export const STEAM: number = __inGameColor(195, 214, 235);
+export const CRYO: number = __inGameColor(0, 213, 255);
+export const MYSTERY: number = __inGameColor(162, 232, 196);
+export const METHANE: number = __inGameColor(140, 140, 140);
+export const SOIL: number = __inGameColor(120, 75, 33);
+export const WET_SOIL: number = __inGameColor(70, 35, 10);
+export const BRANCH: number = __inGameColor(166, 128, 100);
+export const LEAF: number = __inGameColor(82, 107, 45);
+export const POLLEN: number = __inGameColor(230, 235, 110);
+export const CHARGED_NITRO: number = __inGameColor(245, 98, 78);
+export const ACID: number = __inGameColor(157, 240, 40);
+export const THERMITE: number = __inGameColor(195, 140, 70);
+export const BURNING_THERMITE: number = __inGameColor(255, 130, 130);
+export const ZOMBIE: number = __inGameColor(236, 223, 245);
+export const ZOMBIE_WET: number = __inGameColor(236, 223, 245);
+export const ZOMBIE_BURNING: number = __inGameColor(250, 130, 130);
+export const ZOMBIE_FROZEN: number = __inGameColor(190, 190, 250);
 
 /*
  * It would be nice to combine the elements and elementActions
@@ -199,7 +216,7 @@ export const elements = new Uint32Array([
   ZOMBIE_BURNING,
   ZOMBIE_FROZEN,
 ]);
-export const elementActions = [
+export const elementActions: ElementAction[] = [
   BACKGROUND_ACTION,
   WALL_ACTION,
   SAND_ACTION,
@@ -244,31 +261,32 @@ export const elementActions = [
 ];
 Object.freeze(elementActions);
 
-export const GAS_PERMEABLE = {};
+export const GAS_PERMEABLE: Record<number, null> = {};
 
-export const NUM_ELEMENTS = elements.length;
+export const NUM_ELEMENTS: number = elements.length;
 
-export function initElements() {
+export function initElements(): void {
   if (NUM_ELEMENTS > 64)
-    throw "too many elements (we only use 6 bits for element index)";
+    throw new Error("too many elements (we only use 6 bits for element index)");
 
-  if (NUM_ELEMENTS !== elementActions.length) throw "need 1 action per element";
+  if (NUM_ELEMENTS !== elementActions.length)
+    throw new Error("need 1 action per element");
 
-  const colors = {};
+  const colors: Record<number, null> = {};
 
-  for (var i = 0; i < elements.length; i++) {
+  for (let i = 0; i < elements.length; i++) {
     const color = elements[i];
     const color_idx =
       ((color & 0x30000) >>> 12) + ((color & 0x300) >>> 6) + (color & 0x3);
 
     if (color_idx !== i)
-      throw "elements array order does not match element indices";
+      throw new Error("elements array order does not match element indices");
 
-    if (color in colors) throw "duplicate color";
+    if (color in colors) throw new Error("duplicate color");
 
     if (color >>> 24 !== 0xff) {
       console.log(color, i);
-      throw "alpha must be set to 0xff";
+      throw new Error("alpha must be set to 0xff");
     }
 
     colors[color] = null;
@@ -301,16 +319,16 @@ export function initElements() {
 
 /* ======================= Element action handlers ======================= */
 
-function WALL_ACTION(_x, _y, _i) {}
+function WALL_ACTION(_x: number, _y: number, _i: number): void {}
 
-function BACKGROUND_ACTION(_x, _y, _i) {
-  throw (
+function BACKGROUND_ACTION(_x: number, _y: number, _i: number): void {
+  throw new Error(
     "As an optimization, we should never be invoking the action for the " +
-    "background"
+      "background"
   );
 }
 
-function SAND_ACTION(x, y, i) {
+function SAND_ACTION(x: number, y: number, i: number): void {
   /* Optimize for common case; can't sink through sand */
   if (y !== MAX_Y_IDX && uniformBelowAdjacent(x, y, i) !== SAND) {
     if (doDensitySink(x, y, i, WATER, true, 25)) return;
@@ -320,12 +338,12 @@ function SAND_ACTION(x, y, i) {
   if (doGravity(x, y, i, true, 95)) return;
 }
 
-function WATER_ACTION(x, y, i) {
+function WATER_ACTION(x: number, y: number, i: number): void {
   if (doGravity(x, y, i, true, 95)) return;
   if (doDensityLiquid(x, y, i, OIL, 25, 50)) return;
 }
 
-function PLANT_ACTION(x, y, i) {
+function PLANT_ACTION(x: number, y: number, i: number): void {
   doGrow(x, y, i, WATER, 50);
 
   if (random() < 5) {
@@ -337,10 +355,10 @@ function PLANT_ACTION(x, y, i) {
   }
 }
 
-function FIRE_ACTION(x, y, i) {
+function FIRE_ACTION(x: number, y: number, i: number): void {
   /* water */
   if (random() < 80) {
-    var waterLoc = bordering(x, y, i, WATER);
+    let waterLoc = bordering(x, y, i, WATER);
     if (waterLoc === -1) waterLoc = bordering(x, y, i, SALT_WATER);
     if (waterLoc !== -1) {
       /* A thermite fire is not extinguished by water */
@@ -365,7 +383,7 @@ function FIRE_ACTION(x, y, i) {
   if (random() < 1) {
     const waxLoc = bordering(x, y, i, WAX);
     if (waxLoc !== -1) {
-      const waxXY = fastItoXYBordering(x, y, i, waxLoc);
+      const waxXY = fastItoXYBordering(x, y, i, waxLoc, width);
       gameImagedata32[waxLoc] = FIRE;
       const fallLoc = below(
         Math.max(y, waxXY[1]),
@@ -388,13 +406,13 @@ function FIRE_ACTION(x, y, i) {
 
   /* flame out (unless in contact with element that needs to retain fire) */
   if (random() < 40) {
-    var flameOut = true;
+    let flameOut = true;
 
     const xStart = Math.max(x - 1, 0);
     const yStart = Math.max(y - 1, 0);
     const xEnd = Math.min(x + 2, MAX_X_IDX + 1);
     const yEnd = Math.min(y + 2, MAX_Y_IDX + 1);
-    var xIter, yIter;
+    let xIter: number, yIter: number;
     for (yIter = yStart; yIter !== yEnd; yIter++) {
       const idxBase = yIter * width;
       for (xIter = xStart; xIter !== xEnd; xIter++) {
@@ -452,18 +470,18 @@ function FIRE_ACTION(x, y, i) {
   }
 }
 
-function SALT_ACTION(x, y, i) {
+function SALT_ACTION(x: number, y: number, i: number): void {
   if (doGravity(x, y, i, true, 95)) return;
   if (doTransform(x, y, i, WATER, SALT_WATER, 25, 50)) return;
   if (doDensitySink(x, y, i, SALT_WATER, true, 25)) return;
 }
 
-function SALT_WATER_ACTION(x, y, i) {
+function SALT_WATER_ACTION(x: number, y: number, i: number): void {
   if (doGravity(x, y, i, true, 95)) return;
   if (doDensityLiquid(x, y, i, WATER, 50, 50)) return;
 }
 
-function OIL_ACTION(x, y, i) {
+function OIL_ACTION(x: number, y: number, i: number): void {
   if (random() < 30) {
     if (bordering(x, y, i, FIRE) !== -1) {
       __doBorderBurn(x, y, i);
@@ -474,19 +492,19 @@ function OIL_ACTION(x, y, i) {
   if (doGravity(x, y, i, true, 95)) return;
 }
 
-function SPOUT_ACTION(x, y, i) {
+function SPOUT_ACTION(x: number, y: number, i: number): void {
   doProducer(x, y, i, WATER, false, 5);
 }
 
-function WELL_ACTION(x, y, i) {
+function WELL_ACTION(x: number, y: number, i: number): void {
   doProducer(x, y, i, OIL, false, 10);
 }
 
-function TORCH_ACTION(x, y, i) {
+function TORCH_ACTION(x: number, y: number, i: number): void {
   doProducer(x, y, i, FIRE, true, 25);
 }
 
-function GUNPOWDER_ACTION(x, y, i) {
+function GUNPOWDER_ACTION(x: number, y: number, i: number): void {
   if (random() < 95) {
     if (bordering(x, y, i, FIRE) !== -1) {
       /* Chance to set off a star shaped explosion */
@@ -510,14 +528,14 @@ function GUNPOWDER_ACTION(x, y, i) {
   if (doGravity(x, y, i, true, 95)) return;
 }
 
-function WAX_ACTION(_x, _y, _i) {}
+function WAX_ACTION(_x: number, _y: number, _i: number): void {}
 
-function FALLING_WAX_ACTION(x, y, i) {
+function FALLING_WAX_ACTION(x: number, y: number, i: number): void {
   if (doGravity(x, y, i, false, 100)) return;
   gameImagedata32[i] = WAX;
 }
 
-function NITRO_ACTION(x, y, i) {
+function NITRO_ACTION(x: number, y: number, i: number): void {
   if (doGravity(x, y, i, true, 95)) return;
 
   /* optimize for common case of being surrounded by nitro */
@@ -542,7 +560,7 @@ function NITRO_ACTION(x, y, i) {
   }
 }
 
-function NAPALM_ACTION(x, y, i) {
+function NAPALM_ACTION(x: number, y: number, i: number): void {
   if (random() < 25 && bordering(x, y, i, FIRE) !== -1) {
     if (!particles.addActiveParticle(NAPALM_PARTICLE, x, y, i)) {
       gameImagedata32[i] = FIRE;
@@ -553,7 +571,7 @@ function NAPALM_ACTION(x, y, i) {
   if (doGravity(x, y, i, true, 95)) return;
 }
 
-function C4_ACTION(x, y, i) {
+function C4_ACTION(x: number, y: number, i: number): void {
   if (random() < 60 && bordering(x, y, i, FIRE) !== -1) {
     if (!particles.addActiveParticle(C4_PARTICLE, x, y, i)) {
       gameImagedata32[i] = FIRE;
@@ -562,7 +580,7 @@ function C4_ACTION(x, y, i) {
   }
 }
 
-function CONCRETE_ACTION(x, y, i) {
+function CONCRETE_ACTION(x: number, y: number, i: number): void {
   if (y !== MAX_Y_IDX && uniformBelowAdjacent(x, y, i) !== CONCRETE) {
     if (doDensitySink(x, y, i, WATER, true, 35)) return;
     if (doDensitySink(x, y, i, SALT_WATER, true, 35)) return;
@@ -586,9 +604,9 @@ function CONCRETE_ACTION(x, y, i) {
   if (random() < 10 && random() < 10 && random() < 5) gameImagedata32[i] = WALL;
 }
 
-function FUSE_ACTION(_x, _y, _i) {}
+function FUSE_ACTION(_x: number, _y: number, _i: number): void {}
 
-function ICE_ACTION(x, y, i) {
+function ICE_ACTION(x: number, y: number, i: number): void {
   /*
    * NOTE: we use surroundedBy instead of surroundedByAdjacent, because all
    * of the below checks are bordering(), not borderingAdjacent().
@@ -617,7 +635,7 @@ function ICE_ACTION(x, y, i) {
 
   /* Fast melt from SALT and SALT_WATER */
   if (random() < 10) {
-    var saltLoc = bordering(x, y, i, SALT);
+    let saltLoc = bordering(x, y, i, SALT);
     if (saltLoc === -1) saltLoc = bordering(x, y, i, SALT_WATER);
 
     if (saltLoc !== -1) {
@@ -643,7 +661,7 @@ function ICE_ACTION(x, y, i) {
   }
 }
 
-function CHILLED_ICE_ACTION(x, y, i) {
+function CHILLED_ICE_ACTION(x: number, y: number, i: number): void {
   /* thaw to regular ice */
   if (random() < 6) {
     gameImagedata32[i] = ICE;
@@ -672,7 +690,7 @@ function CHILLED_ICE_ACTION(x, y, i) {
  * Faster than using a dictionary.
  * This assumption may change as this list gets longer.
  */
-const __lava_immune = [
+const __lava_immune: number[] = [
   LAVA,
   BACKGROUND,
   FIRE,
@@ -683,9 +701,9 @@ const __lava_immune = [
   STEAM,
 ];
 Object.freeze(__lava_immune);
-const __num_lava_immune = __lava_immune.length;
+const __num_lava_immune: number = __lava_immune.length;
 
-function LAVA_ACTION(x, y, i) {
+function LAVA_ACTION(x: number, y: number, i: number): void {
   if (random() < 1 && random() < 50) {
     const wallLoc = borderingAdjacent(x, y, i, WALL);
     if (wallLoc !== -1) gameImagedata32[wallLoc] = LAVA;
@@ -696,7 +714,7 @@ function LAVA_ACTION(x, y, i) {
   const left = x !== 0 ? i - 1 : -1;
   const right = x !== MAX_X_IDX ? i + 1 : -1;
 
-  var skipDirectAdjacent = true;
+  let skipDirectAdjacent = true;
   if (up !== -1 && gameImagedata32[up] !== LAVA) skipDirectAdjacent = false;
   else if (
     left !== -1 &&
@@ -724,7 +742,7 @@ function LAVA_ACTION(x, y, i) {
    * DO NOT ADD ANYTHING IN HERE THAT CHECKS CORNER PIXELS.
    */
   if (!skipDirectAdjacent) {
-    var waterLoc = bordering(x, y, i, WATER);
+    let waterLoc = bordering(x, y, i, WATER);
     if (waterLoc === -1) waterLoc = bordering(x, y, i, SALT_WATER);
     if (waterLoc !== -1) {
       gameImagedata32[waterLoc] = STEAM;
@@ -747,7 +765,7 @@ function LAVA_ACTION(x, y, i) {
     if (random() < 25) {
       const burnLocs = [up, down, left, right];
       const numBurnLocs = burnLocs.length;
-      var j, k;
+      let j: number, k: number;
 
       for (j = 0; j !== numBurnLocs; j++) {
         const burnLoc = burnLocs[j];
@@ -755,7 +773,7 @@ function LAVA_ACTION(x, y, i) {
         if (burnLoc === -1) continue;
 
         const elem = gameImagedata32[burnLoc];
-        var burn = true;
+        let burn = true;
         for (k = 0; k !== __num_lava_immune; k++) {
           if (elem === __lava_immune[k]) {
             burn = false;
@@ -800,7 +818,7 @@ function LAVA_ACTION(x, y, i) {
   if (doGravity(x, y, i, true, 100)) return;
 }
 
-function ROCK_ACTION(x, y, i) {
+function ROCK_ACTION(x: number, y: number, i: number): void {
   if (y !== MAX_Y_IDX && uniformBelowAdjacent(x, y, i) !== ROCK) {
     if (doDensitySink(x, y, i, WATER, false, 95)) return;
     if (doDensitySink(x, y, i, OIL, false, 95)) return;
@@ -821,7 +839,7 @@ function ROCK_ACTION(x, y, i) {
   }
 }
 
-function STEAM_ACTION(x, y, i) {
+function STEAM_ACTION(x: number, y: number, i: number): void {
   if (doDensityGas(x, y, i, 70)) return;
   if (doRise(x, y, i, 70, 60)) return;
 
@@ -859,13 +877,13 @@ function STEAM_ACTION(x, y, i) {
   }
 }
 
-function CRYO_ACTION(x, y, i) {
+function CRYO_ACTION(x: number, y: number, i: number): void {
   /* Freeze a surrounding surface */
   const xStart = Math.max(x - 1, 0);
   const yStart = Math.max(y - 1, 0);
   const xEnd = Math.min(x + 2, MAX_X_IDX + 1);
   const yEnd = Math.min(y + 2, MAX_Y_IDX + 1);
-  var xIter, yIter;
+  let xIter: number, yIter: number;
   for (yIter = yStart; yIter !== yEnd; yIter++) {
     const idxBase = yIter * width;
     for (xIter = xStart; xIter !== xEnd; xIter++) {
@@ -919,7 +937,7 @@ function CRYO_ACTION(x, y, i) {
   }
 }
 
-function MYSTERY_ACTION(x, y, i) {
+function MYSTERY_ACTION(x: number, y: number, i: number): void {
   if (
     particles.particleActive(MAGIC1_PARTICLE) ||
     particles.particleActive(MAGIC2_PARTICLE)
@@ -947,7 +965,7 @@ function MYSTERY_ACTION(x, y, i) {
 
   /* Random scramble the canvas when in contact with FIRE */
   if (bordering(x, y, i, FIRE) !== -1) {
-    for (var idx = MAX_IDX; idx !== 0; idx--) {
+    for (let idx = MAX_IDX; idx !== 0; idx--) {
       const currElem = gameImagedata32[idx];
       if (currElem === WALL) {
         continue;
@@ -978,7 +996,7 @@ function MYSTERY_ACTION(x, y, i) {
   }
 }
 
-function METHANE_ACTION(x, y, i) {
+function METHANE_ACTION(x: number, y: number, i: number): void {
   if (random() < 25 && bordering(x, y, i, FIRE) !== -1) {
     if (!particles.addActiveParticle(METHANE_PARTICLE, x, y, i)) {
       gameImagedata32[i] = FIRE;
@@ -992,7 +1010,7 @@ function METHANE_ACTION(x, y, i) {
   if (doDensityGas(x, y, i, 70)) return;
 }
 
-function SOIL_ACTION(x, y, i) {
+function SOIL_ACTION(x: number, y: number, i: number): void {
   if (doGravity(x, y, i, false, 99)) return;
 
   /* Optimize for common case; can't sink through SOIL */
@@ -1014,7 +1032,7 @@ function SOIL_ACTION(x, y, i) {
   }
 }
 
-function WET_SOIL_ACTION(x, y, i) {
+function WET_SOIL_ACTION(x: number, y: number, i: number): void {
   if (random() < 15) {
     const waterLoc = aboveAdjacent(x, y, i, WATER);
     if (waterLoc !== -1) {
@@ -1047,7 +1065,7 @@ function WET_SOIL_ACTION(x, y, i) {
   }
 }
 
-function BRANCH_ACTION(x, y, i) {
+function BRANCH_ACTION(x: number, y: number, i: number): void {
   if (random() < 3) {
     if (borderingAdjacent(x, y, i, FIRE) !== -1) {
       gameImagedata32[i] = FIRE;
@@ -1055,7 +1073,7 @@ function BRANCH_ACTION(x, y, i) {
   }
 }
 
-function LEAF_ACTION(x, y, i) {
+function LEAF_ACTION(x: number, y: number, i: number): void {
   if (random() < 5) {
     if (borderingAdjacent(x, y, i, FIRE) !== -1) {
       gameImagedata32[i] = FIRE;
@@ -1073,11 +1091,11 @@ function LEAF_ACTION(x, y, i) {
   if (random() < 1 && random() < 9) doProducer(x, y, i, POLLEN, false, 100);
 }
 
-function POLLEN_ACTION(x, y, i) {
+function POLLEN_ACTION(x: number, y: number, i: number): void {
   if (doGravity(x, y, i, true, 95)) return;
 }
 
-function CHARGED_NITRO_ACTION(x, y, i) {
+function CHARGED_NITRO_ACTION(x: number, y: number, i: number): void {
   if (doGravity(x, y, i, true, 95)) return;
 
   if (y !== MAX_Y_IDX && uniformBelowAdjacent(x, y, i) !== CHARGED_NITRO) {
@@ -1094,7 +1112,7 @@ function CHARGED_NITRO_ACTION(x, y, i) {
   }
 }
 
-function ACID_ACTION(x, y, i) {
+function ACID_ACTION(x: number, y: number, i: number): void {
   /* Dissolve a bordering element */
   if (random() < 10) {
     const up = y > 0 ? y - 1 : -1;
@@ -1112,7 +1130,7 @@ function ACID_ACTION(x, y, i) {
       yLocs[0] = up;
       yLocs[1] = down;
     }
-    var xLocsIter, yLocsIter;
+    let xLocsIter: number, yLocsIter: number;
     for (yLocsIter = 0; yLocsIter !== 3; yLocsIter++) {
       const yIter = yLocs[yLocsIter];
       if (yIter === -1) continue;
@@ -1162,7 +1180,7 @@ function ACID_ACTION(x, y, i) {
   if (doGravity(x, y, i, true, 100)) return;
 }
 
-function THERMITE_ACTION(x, y, i) {
+function THERMITE_ACTION(x: number, y: number, i: number): void {
   if (surroundedByAdjacent(x, y, i, THERMITE)) return;
 
   /* Chance to turn into BURNING_THERMITE if near fire */
@@ -1180,12 +1198,12 @@ function THERMITE_ACTION(x, y, i) {
   if (doGravity(x, y, i, false, 99)) return;
 }
 
-function BURNING_THERMITE_ACTION(x, y, i) {
+function BURNING_THERMITE_ACTION(x: number, y: number, i: number): void {
   const aboveIdx = y > 0 ? i - width : -1;
   const leftIdx = x > 0 ? i - 1 : -1;
   const rightIdx = x < MAX_X_IDX ? i + 1 : -1;
   const burnLocs = [aboveIdx, leftIdx, rightIdx];
-  var iter;
+  let iter: number;
   for (iter = 0; iter !== 3; iter++) {
     const burnLoc = burnLocs[iter];
     if (burnLoc === -1) continue;
@@ -1235,7 +1253,7 @@ function BURNING_THERMITE_ACTION(x, y, i) {
   if (doDensitySink(x, y, i, OIL, false, 95)) return;
 }
 
-function ZOMBIE_ACTION(x, y, i) {
+function ZOMBIE_ACTION(x: number, y: number, i: number): void {
   if (bordering(x, y, i, FIRE) !== -1) {
     const empty_spot = bordering(x, y, i, BACKGROUND);
     if (empty_spot !== -1) {
@@ -1248,8 +1266,8 @@ function ZOMBIE_ACTION(x, y, i) {
   gameImagedata32[i] = BACKGROUND;
 }
 
-function ZOMBIE_WET_ACTION(x, y, i) {
-  var fireLoc = aboveAdjacent(x, y, i, FIRE);
+function ZOMBIE_WET_ACTION(x: number, y: number, i: number): void {
+  let fireLoc = aboveAdjacent(x, y, i, FIRE);
   if (fireLoc !== -1) {
     gameImagedata32[fireLoc] = BACKGROUND;
   }
@@ -1270,7 +1288,7 @@ function ZOMBIE_WET_ACTION(x, y, i) {
   gameImagedata32[i] = BACKGROUND;
 }
 
-function ZOMBIE_BURNING_ACTION(x, y, i) {
+function ZOMBIE_BURNING_ACTION(x: number, y: number, i: number): void {
   if (borderingAdjacent(x, y, i, WATER) === -1) {
     doProducer(x, y, i, FIRE, true, 10);
   } else {
@@ -1286,13 +1304,13 @@ function ZOMBIE_BURNING_ACTION(x, y, i) {
   gameImagedata32[i] = BACKGROUND;
 }
 
-function ZOMBIE_FROZEN_ACTION(x, y, i) {
+function ZOMBIE_FROZEN_ACTION(x: number, y: number, i: number): void {
   gameImagedata32[i] = BACKGROUND;
 }
 
 /*  =============================== Helpers =============================== */
 
-function __pickRandValid(a, b) {
+function __pickRandValid(a: number, b: number): number {
   const aValid = a !== -1;
   const bValid = b !== -1;
 
@@ -1303,7 +1321,7 @@ function __pickRandValid(a, b) {
 }
 
 /* Checks single pixel immediately below */
-function below(y, i, type) {
+function below(y: number, i: number, type: number): number {
   if (y === MAX_Y_IDX) return -1;
 
   const belowSpot = i + width;
@@ -1312,7 +1330,7 @@ function below(y, i, type) {
 }
 
 /* Checks the pixel below, and the 2 diagonally below */
-function belowAdjacent(x, y, i, type) {
+function belowAdjacent(x: number, y: number, i: number, type: number): number {
   if (y === MAX_Y_IDX) return -1;
 
   const belowSpot = i + width;
@@ -1333,7 +1351,7 @@ function belowAdjacent(x, y, i, type) {
 }
 
 /* Checks single pixel immediately above */
-function above(y, i, type) {
+function above(y: number, i: number, type: number): number {
   if (y === 0) return -1;
 
   const aboveSpot = i - width;
@@ -1342,7 +1360,7 @@ function above(y, i, type) {
 }
 
 /* Checks the pixel above, and the 2 diagonally above */
-function aboveAdjacent(x, y, i, type) {
+function aboveAdjacent(x: number, y: number, i: number, type: number): number {
   if (y === 0) return -1;
 
   const aboveSpot = i - width;
@@ -1362,7 +1380,7 @@ function aboveAdjacent(x, y, i, type) {
 }
 
 /* Checks the two pixels on the side (right and left) */
-function adjacent(x, i, type) {
+function adjacent(x: number, i: number, type: number): number {
   const leftSpot = i - 1;
   const rightSpot = i + 1;
 
@@ -1375,8 +1393,8 @@ function adjacent(x, i, type) {
 }
 
 /* Checks up, down, left, and right. Does not check corners. */
-function bordering(x, y, i, type) {
-  var loc = -1;
+function bordering(x: number, y: number, i: number, type: number): number {
+  let loc = -1;
 
   if (y !== MAX_Y_IDX) {
     loc = below(y, i, type);
@@ -1394,8 +1412,8 @@ function bordering(x, y, i, type) {
 }
 
 /* Checks all 8 adjacent pixels, including corners */
-function borderingAdjacent(x, y, i, type) {
-  var loc = -1;
+function borderingAdjacent(x: number, y: number, i: number, type: number): number {
+  let loc = -1;
 
   if (y !== MAX_Y_IDX) {
     loc = belowAdjacent(x, y, i, type);
@@ -1413,7 +1431,7 @@ function borderingAdjacent(x, y, i, type) {
 }
 
 /* Checks up, down, left, and right. Does not check corners. */
-function surroundedBy(x, y, i, type) {
+function surroundedBy(x: number, y: number, i: number, type: number): boolean {
   if (y !== MAX_Y_IDX && gameImagedata32[i + width] !== type) return false;
   if (y !== 0 && gameImagedata32[i - width] !== type) return false;
   if (x !== 0 && gameImagedata32[i - 1] !== type) return false;
@@ -1423,7 +1441,7 @@ function surroundedBy(x, y, i, type) {
 }
 
 /* Checks all 8 adjacent pixels, including corners */
-function surroundedByAdjacent(x, y, i, type) {
+function surroundedByAdjacent(x: number, y: number, i: number, type: number): boolean {
   const atBottom = y === MAX_Y_IDX;
   const atTop = y === 0;
 
@@ -1448,8 +1466,8 @@ function surroundedByAdjacent(x, y, i, type) {
 }
 
 /* Checks up, down, left, and right. Does not check corners. */
-function _surroundedByCount(x, y, i, type) {
-  var count = 0;
+function _surroundedByCount(x: number, y: number, i: number, type: number): number {
+  let count = 0;
 
   if (y !== MAX_Y_IDX && gameImagedata32[i + width] === type) count++;
   if (y !== 0 && gameImagedata32[i - width] === type) count++;
@@ -1463,10 +1481,10 @@ function _surroundedByCount(x, y, i, type) {
  * Counts number of bordering elements of the given type (checks all 8
  * adjacent pixels).
  */
-function _surroundedByAdjacentCount(x, y, i, type) {
+function _surroundedByAdjacentCount(x: number, y: number, i: number, type: number): number {
   const atBottom = y === MAX_Y_IDX;
   const atTop = y === 0;
-  var count = 0;
+  let count = 0;
 
   if (!atBottom && gameImagedata32[i + width] === type) count++;
   if (!atTop && gameImagedata32[i - width] === type) count++;
@@ -1488,15 +1506,23 @@ function _surroundedByAdjacentCount(x, y, i, type) {
   return count;
 }
 
-function doGravity(x, y, i, fallAdjacent, chance) {
+function doGravity(x: number, y: number, i: number, fallAdjacent: boolean, chance: number): boolean {
   if (random() >= chance) return false;
 
   if (y === MAX_Y_IDX) {
-    gameImagedata32[i] = BACKGROUND;
-    return true;
+    /*
+     * If void mode is enabled, elements fall off the bottom edge.
+     * If void mode is disabled, edges act as walls and elements stop.
+     */
+    if (VOID_MODE_ENABLED) {
+      gameImagedata32[i] = BACKGROUND;
+      return true;
+    } else {
+      return false; // Stop at edge (treat as wall)
+    }
   }
 
-  var newI;
+  let newI: number;
 
   if (fallAdjacent) newI = belowAdjacent(x, y, i, BACKGROUND);
   else newI = below(y, i, BACKGROUND);
@@ -1519,12 +1545,20 @@ function doGravity(x, y, i, fallAdjacent, chance) {
  * of the game (for example, the fact that we update the game
  * from bottom to top).
  */
-function doRise(x, y, i, riseChance, adjacentChance) {
-  var newI = -1;
+function doRise(x: number, y: number, i: number, riseChance: number, adjacentChance: number): boolean {
+  let newI = -1;
   if (random() < riseChance) {
     if (y === 0) {
-      gameImagedata32[i] = BACKGROUND;
-      return true;
+      /*
+       * If void mode is enabled, elements disappear at the top edge.
+       * If void mode is disabled, edges act as walls and elements stop.
+       */
+      if (VOID_MODE_ENABLED) {
+        gameImagedata32[i] = BACKGROUND;
+        return true;
+      } else {
+        return false; // Stop at edge (treat as wall)
+      }
     } else {
       newI = aboveAdjacent(x, y, i, BACKGROUND);
     }
@@ -1543,12 +1577,12 @@ function doRise(x, y, i, riseChance, adjacentChance) {
 }
 
 /* Sink the current solid element if it is on top of heavierThan */
-function doDensitySink(x, y, i, heavierThan, sinkAdjacent, chance) {
+function doDensitySink(x: number, y: number, i: number, heavierThan: number, sinkAdjacent: boolean, chance: number): boolean {
   if (random() >= chance) return false;
 
   if (y === MAX_Y_IDX) return false;
 
-  var newI;
+  let newI: number;
   if (sinkAdjacent) newI = belowAdjacent(x, y, i, heavierThan);
   else newI = below(y, i, heavierThan);
 
@@ -1560,8 +1594,8 @@ function doDensitySink(x, y, i, heavierThan, sinkAdjacent, chance) {
 }
 
 /* Sink the current liquid element if it is on top of heavierThan */
-function doDensityLiquid(x, y, i, heavierThan, sinkChance, equalizeChance) {
-  var newI = -1;
+function doDensityLiquid(x: number, y: number, i: number, heavierThan: number, sinkChance: number, equalizeChance: number): boolean {
+  let newI = -1;
 
   if (random() < sinkChance) newI = belowAdjacent(x, y, i, heavierThan);
 
@@ -1575,7 +1609,7 @@ function doDensityLiquid(x, y, i, heavierThan, sinkChance, equalizeChance) {
   return true;
 }
 
-function doGrow(x, y, i, intoColor, chance) {
+function doGrow(x: number, y: number, i: number, intoColor: number, chance: number): boolean {
   if (random() >= chance) return false;
 
   const growLoc = borderingAdjacent(x, y, i, intoColor);
@@ -1585,7 +1619,7 @@ function doGrow(x, y, i, intoColor, chance) {
   return true;
 }
 
-function __doBorderBurn(x, y, i) {
+function __doBorderBurn(x: number, y: number, i: number): void {
   if (y !== 0) gameImagedata32[i - width] = FIRE;
   if (y !== MAX_Y_IDX) gameImagedata32[i + width] = FIRE;
   if (x !== 0) gameImagedata32[i - 1] = FIRE;
@@ -1594,7 +1628,7 @@ function __doBorderBurn(x, y, i) {
   gameImagedata32[i] = FIRE;
 }
 
-function __doGunpowderExplosion(x, y, i) {
+function __doGunpowderExplosion(x: number, y: number, i: number): void {
   const burn = random() < 60;
   const replace = burn ? FIRE : GUNPOWDER;
   const isNotLeftmost = x !== 0;
@@ -1646,14 +1680,14 @@ function __doGunpowderExplosion(x, y, i) {
 }
 
 function doTransform(
-  x,
-  y,
-  i,
-  transformBy,
-  transformInto,
-  transformChance,
-  consumeChance
-) {
+  x: number,
+  y: number,
+  i: number,
+  transformBy: number,
+  transformInto: number,
+  transformChance: number,
+  consumeChance: number
+): boolean {
   const rand = random();
   if (rand >= transformChance) return false;
 
@@ -1665,7 +1699,7 @@ function doTransform(
   return true;
 }
 
-function doProducer(x, y, i, produce, overwriteAdjacent, chance) {
+function doProducer(x: number, y: number, i: number, produce: number, overwriteAdjacent: boolean, chance: number): boolean {
   if (random() >= chance) return false;
 
   const up = i - width;
@@ -1687,13 +1721,15 @@ function doProducer(x, y, i, produce, overwriteAdjacent, chance) {
     (overwriteAdjacent || gameImagedata32[right] === BACKGROUND)
   )
     gameImagedata32[right] = produce;
+  
+  return true;
 }
 
 /*
  * If there is only a single type of element in the 3 pixels
  * below this coordinate, return that element. Otherwise, -1.
  */
-function uniformBelowAdjacent(x, y, i) {
+function uniformBelowAdjacent(x: number, y: number, i: number): number {
   if (y === MAX_Y_IDX) return -1;
 
   const belowIdx = i + width;
@@ -1706,7 +1742,7 @@ function uniformBelowAdjacent(x, y, i) {
   return belowElem;
 }
 
-function gasPermeable(elem) {
+function gasPermeable(elem: number): boolean {
   /* optimize for common case */
   if (elem === BACKGROUND || elem === STEAM || elem === METHANE) return false;
 
@@ -1714,14 +1750,14 @@ function gasPermeable(elem) {
 }
 
 /* allow elements to fall through/displace gas elements */
-function doDensityGas(x, y, i, chance) {
+function doDensityGas(x: number, y: number, i: number, chance: number): boolean {
   if (random() >= chance) return false;
 
   if (y === 0) return false;
 
   const gasElem = gameImagedata32[i];
 
-  var swapSpot = -1;
+  let swapSpot = -1;
   const aboveSpot = i - width;
   const aboveElem = gameImagedata32[aboveSpot];
   if (gasPermeable(aboveElem)) swapSpot = aboveSpot;
@@ -1730,8 +1766,8 @@ function doDensityGas(x, y, i, chance) {
     const aboveRight = aboveSpot + 1;
     const aboveLeftElem = x !== 0 ? gameImagedata32[aboveLeft] : -1;
     const aboveRightElem = x !== MAX_X_IDX ? gameImagedata32[aboveRight] : -1;
-    var swapAboveLeft = -1;
-    var swapAboveRight = -1;
+    let swapAboveLeft = -1;
+    let swapAboveRight = -1;
 
     /*
      * This code is longer than usual in order to optimize to reduce the

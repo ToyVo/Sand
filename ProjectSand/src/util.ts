@@ -18,17 +18,17 @@
  */
 
 /* Pre-compute to improve performance */
-export const TWO_PI = 2 * Math.PI;
-export const HALF_PI = Math.PI / 2;
-export const QUARTER_PI = Math.PI / 4;
-export const EIGHTH_PI = Math.PI / 8;
-export const SIXTEENTH_PI = Math.PI / 16;
-export const EIGHTEENTH_PI = Math.PI / 18;
+export const TWO_PI: number = 2 * Math.PI;
+export const HALF_PI: number = Math.PI / 2;
+export const QUARTER_PI: number = Math.PI / 4;
+export const EIGHTH_PI: number = Math.PI / 8;
+export const SIXTEENTH_PI: number = Math.PI / 16;
+export const EIGHTEENTH_PI: number = Math.PI / 18;
 
-const __num_rand_ints = 8192;
-const __rand_ints = new Uint8Array(__num_rand_ints);
-var __next_rand = 0;
-for (var i = 0; i < __num_rand_ints; i++) {
+const __num_rand_ints: number = 8192;
+const __rand_ints: Uint8Array = new Uint8Array(__num_rand_ints);
+let __next_rand: number = 0;
+for (let i = 0; i < __num_rand_ints; i++) {
   __rand_ints[i] = Math.floor(Math.random() * 100);
 }
 
@@ -38,7 +38,7 @@ for (var i = 0; i < __num_rand_ints; i++) {
  * can't tolerate the time to call Math.random() directly
  * (or deal with floats).
  */
-export function random() {
+export function random(): number {
   const r = __rand_ints[__next_rand];
 
   __next_rand++;
@@ -48,15 +48,15 @@ export function random() {
 }
 
 /* Returns a random int in range [low, high) */
-export function randomIntInRange(low, high) {
+export function randomIntInRange(low: number, high: number): number {
   return Math.floor(Math.random() * (high - low) + low);
 }
 
-export function clamp(val, min, max) {
+export function clamp(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(val, max));
 }
 
-export function executeAndTime(func) {
+export function executeAndTime(func: () => void): number {
   const start = performance.now();
   func();
   const end = performance.now();
@@ -64,33 +64,37 @@ export function executeAndTime(func) {
   return end - start;
 }
 
-export function displayPerformance(func, funcName) {
+export function displayPerformance(func: () => void, funcName: string): void {
   const execTime = executeAndTime(func);
 
   console.log(funcName, ": ", execTime, "ms");
 }
 
-export function docOffsetLeft(elem) {
-  var offsetLeft = 0;
+export function docOffsetLeft(elem: HTMLElement): number {
+  let offsetLeft = 0;
+  let current: HTMLElement | null = elem;
   do {
-    if (!isNaN(elem.offsetLeft)) {
-      offsetLeft += elem.offsetLeft;
+    if (current && !isNaN(current.offsetLeft)) {
+      offsetLeft += current.offsetLeft;
     }
-  } while ((elem = elem.offsetParent));
+    current = current?.offsetParent as HTMLElement | null;
+  } while (current);
   return offsetLeft;
 }
 
-export function docOffsetTop(elem) {
-  var offsetTop = 0;
+export function docOffsetTop(elem: HTMLElement): number {
+  let offsetTop = 0;
+  let current: HTMLElement | null = elem;
   do {
-    if (!isNaN(elem.offsetTop)) {
-      offsetTop += elem.offsetTop;
+    if (current && !isNaN(current.offsetTop)) {
+      offsetTop += current.offsetTop;
     }
-  } while ((elem = elem.offsetParent));
+    current = current?.offsetParent as HTMLElement | null;
+  } while (current);
   return offsetTop;
 }
 
-export function distance(x1, y1, x2, y2) {
+export function distance(x1: number, y1: number, x2: number, y2: number): number {
   const dx = x1 - x2;
   const dy = y1 - y2;
 
@@ -105,12 +109,12 @@ export function distance(x1, y1, x2, y2) {
  * bordering pixels.
  */
 export function fastItoXYBorderingAdjacent(
-  startX,
-  startY,
-  startI,
-  goalI,
-  width
-) {
+  startX: number,
+  startY: number,
+  startI: number,
+  goalI: number,
+  width: number
+): [number, number] {
   const bottom = startI + width;
   if (bottom === goalI) return [startX, startY + 1];
   else if (bottom - 1 === goalI) return [startX - 1, startY + 1];
@@ -124,14 +128,20 @@ export function fastItoXYBorderingAdjacent(
   else if (top - 1 === goalI) return [startX - 1, startY - 1];
   else if (top + 1 === goalI) return [startX + 1, startY - 1];
 
-  throw "Not passed a bordering coordinate";
+  throw new Error("Not passed a bordering coordinate");
 }
 
 /*
  * See comment on fastItoXYBorderingAdjacent.
  * This function does the same, but ignores corners.
  */
-export function fastItoXYBordering(startX, startY, startI, goalI, width) {
+export function fastItoXYBordering(
+  startX: number,
+  startY: number,
+  startI: number,
+  goalI: number,
+  width: number
+): [number, number] {
   if (startI + width === goalI) return [startX, startY + 1];
 
   if (startI - 1 === goalI) return [startX - 1, startY];
@@ -139,5 +149,6 @@ export function fastItoXYBordering(startX, startY, startI, goalI, width) {
 
   if (startI - width === goalI) return [startX, startY - 1];
 
-  throw "Not passed a bordering coordinate";
+  throw new Error("Not passed a bordering coordinate");
 }
+

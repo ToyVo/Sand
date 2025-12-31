@@ -71,22 +71,25 @@ import { gameImagedata32, MAX_X_IDX, MAX_Y_IDX, MAX_IDX } from "./game.js";
 const offscreenParticleCanvas = document.createElement("canvas");
 const offscreenParticleCtx = offscreenParticleCanvas.getContext("2d", {
   alpha: false,
-});
+}) as CanvasRenderingContext2D;
 
 /* These values index into __particleInit and __particleActions arrays */
-export const UNKNOWN_PARTICLE = 0;
-export const NITRO_PARTICLE = 1;
-export const NAPALM_PARTICLE = 2;
-export const C4_PARTICLE = 3;
-export const LAVA_PARTICLE = 4;
-export const MAGIC1_PARTICLE = 5; /* multi-pronged star */
-export const MAGIC2_PARTICLE = 6; /* spiral */
-export const METHANE_PARTICLE = 7;
-export const TREE_PARTICLE = 8;
-export const CHARGED_NITRO_PARTICLE = 9;
-export const NUKE_PARTICLE = 10;
+export const UNKNOWN_PARTICLE: number = 0;
+export const NITRO_PARTICLE: number = 1;
+export const NAPALM_PARTICLE: number = 2;
+export const C4_PARTICLE: number = 3;
+export const LAVA_PARTICLE: number = 4;
+export const MAGIC1_PARTICLE: number = 5; /* multi-pronged star */
+export const MAGIC2_PARTICLE: number = 6; /* spiral */
+export const METHANE_PARTICLE: number = 7;
+export const TREE_PARTICLE: number = 8;
+export const CHARGED_NITRO_PARTICLE: number = 9;
+export const NUKE_PARTICLE: number = 10;
 
-const __particleInit = [
+type ParticleInitFunction = (particle: Particle) => void;
+type ParticleActionFunction = (particle: Particle) => void;
+
+const __particleInit: ParticleInitFunction[] = [
   UNKNOWN_PARTICLE_INIT,
   NITRO_PARTICLE_INIT,
   NAPALM_PARTICLE_INIT,
@@ -101,7 +104,7 @@ const __particleInit = [
 ];
 Object.freeze(__particleInit);
 
-const __particleActions = [
+const __particleActions: ParticleActionFunction[] = [
   UNKNOWN_PARTICLE_ACTION,
   NITRO_PARTICLE_ACTION,
   NAPALM_PARTICLE_ACTION,
@@ -116,12 +119,12 @@ const __particleActions = [
 ];
 Object.freeze(__particleActions);
 
-function UNKNOWN_PARTICLE_INIT(_particle) {}
-function UNKNOWN_PARTICLE_ACTION(_particle) {
-  throw "Unknown particle";
+function UNKNOWN_PARTICLE_INIT(_particle: Particle): void {}
+function UNKNOWN_PARTICLE_ACTION(_particle: Particle): void {
+  throw new Error("Unknown particle");
 }
 
-function NITRO_PARTICLE_INIT(particle) {
+function NITRO_PARTICLE_INIT(particle: Particle): void {
   particle.setColor(FIRE);
 
   const velocity = 5 + Math.random() * 10;
@@ -131,7 +134,7 @@ function NITRO_PARTICLE_INIT(particle) {
   particle.size = 2 + Math.random() * 7;
 }
 
-function NITRO_PARTICLE_ACTION(particle) {
+function NITRO_PARTICLE_ACTION(particle: Particle): void {
   offscreenParticleCtx.beginPath();
   offscreenParticleCtx.lineWidth = particle.size;
   offscreenParticleCtx.strokeStyle = particle.rgbaColor;
@@ -150,26 +153,26 @@ function NITRO_PARTICLE_ACTION(particle) {
   else if (particle.offCanvas()) particles.makeParticleInactive(particle);
 }
 
-function NAPALM_PARTICLE_INIT(particle) {
+function NAPALM_PARTICLE_INIT(particle: Particle): void {
   particle.setColor(FIRE);
   particle.size = Math.random() * 8 + 6;
   particle.xVelocity = Math.random() * 8 - 4;
   particle.yVelocity = -1 * (Math.random() * 4 + 4);
-  particle.maxIterations = Math.floor(Math.random() * 10) + 5;
+  (particle as any).maxIterations = Math.floor(Math.random() * 10) + 5;
 }
 
-function NAPALM_PARTICLE_ACTION(particle) {
+function NAPALM_PARTICLE_ACTION(particle: Particle): void {
   particle.drawCircle(particle.size);
 
   particle.x += particle.xVelocity;
   particle.y += particle.yVelocity;
   particle.size *= 1 + Math.random() * 0.1;
 
-  if (particle.actionIterations > particle.maxIterations)
+  if (particle.actionIterations > (particle as any).maxIterations)
     particles.makeParticleInactive(particle);
 }
 
-function C4_PARTICLE_INIT(particle) {
+function C4_PARTICLE_INIT(particle: Particle): void {
   particle.setColor(FIRE);
   const rand = Math.random() * 10000;
   if (rand < 9000) {
@@ -183,7 +186,7 @@ function C4_PARTICLE_INIT(particle) {
   }
 }
 
-function C4_PARTICLE_ACTION(particle) {
+function C4_PARTICLE_ACTION(particle: Particle): void {
   particle.drawCircle(particle.size);
 
   if (particle.actionIterations % 3 === 0) {
@@ -192,23 +195,23 @@ function C4_PARTICLE_ACTION(particle) {
   }
 }
 
-function LAVA_PARTICLE_INIT(particle) {
+function LAVA_PARTICLE_INIT(particle: Particle): void {
   particle.setColor(FIRE);
   /* Make it harder for the angle to be steep */
-  var angle = QUARTER_PI + Math.random() * HALF_PI;
+  let angle = QUARTER_PI + Math.random() * HALF_PI;
   if (random() < 75 && Math.abs(HALF_PI - angle) < EIGHTEENTH_PI)
     angle += EIGHTEENTH_PI * (angle > HALF_PI ? 1 : -1);
 
   particle.xVelocity = (1 + Math.random() * 3) * Math.cos(angle);
   particle.yVelocity = (-4 * Math.random() - 3) * Math.sin(angle);
-  particle.initYVelocity = particle.yVelocity;
-  particle.yAcceleration = 0.06;
+  (particle as any).initYVelocity = particle.yVelocity;
+  (particle as any).yAcceleration = 0.06;
 
   particle.size = 4 + Math.random() * 3;
   particle.y -= particle.size;
 }
 
-function LAVA_PARTICLE_ACTION(particle) {
+function LAVA_PARTICLE_ACTION(particle: Particle): void {
   offscreenParticleCtx.beginPath();
   offscreenParticleCtx.lineWidth = particle.size;
   offscreenParticleCtx.strokeStyle = particle.rgbaColor;
@@ -219,8 +222,8 @@ function LAVA_PARTICLE_ACTION(particle) {
   particle.x += particle.xVelocity;
   particle.y =
     particle.initY +
-    particle.initYVelocity * iterations +
-    (particle.yAcceleration * iterations * iterations) / 2;
+    (particle as any).initYVelocity * iterations +
+    ((particle as any).yAcceleration * iterations * iterations) / 2;
 
   offscreenParticleCtx.lineTo(particle.x, particle.y);
   offscreenParticleCtx.stroke();
@@ -235,10 +238,11 @@ function LAVA_PARTICLE_ACTION(particle) {
   if (random() < 25) {
     /* Need to update yVelocity before calling aboutToHit() */
     particle.yVelocity =
-      particle.initYVelocity + particle.yAcceleration * iterations;
+      (particle as any).initYVelocity +
+      (particle as any).yAcceleration * iterations;
     const touchingColor = particle.aboutToHit();
 
-    var replaceColor = -1;
+    let replaceColor = -1;
     if (touchingColor === WATER || touchingColor === SALT_WATER) {
       if (random() < 58) replaceColor = ROCK;
     } else if (touchingColor === LAVA || touchingColor === ROCK) {
@@ -262,12 +266,12 @@ function LAVA_PARTICLE_ACTION(particle) {
   }
 }
 
-function MAGIC1_PARTICLE_INIT(particle) {
+function MAGIC1_PARTICLE_INIT(particle: Particle): void {
   if (!particle.reinitialized) particle.setRandomColor(MAGIC_COLORS);
 
-  var numSpokes = 5 + Math.round(Math.random() * 13);
-  const spokes = [particle];
-  var i;
+  let numSpokes = 5 + Math.round(Math.random() * 13);
+  const spokes: Particle[] = [particle];
+  let i: number;
   for (i = 1; i !== numSpokes; i++) {
     /*
      * Temporarily set type to UNKNOWN_PARTICLE so that we don't
@@ -298,7 +302,7 @@ function MAGIC1_PARTICLE_INIT(particle) {
   const velocity = 7 + Math.random() * 3;
   const spokeSize = 4 + Math.random() * 4;
 
-  var currAngle = 0;
+  let currAngle = 0;
   for (i = 0; i !== numSpokes; i++) {
     const spoke = spokes[i];
     spoke.setVelocity(velocity, currAngle);
@@ -307,7 +311,7 @@ function MAGIC1_PARTICLE_INIT(particle) {
   }
 }
 
-function MAGIC1_PARTICLE_ACTION(particle) {
+function MAGIC1_PARTICLE_ACTION(particle: Particle): void {
   offscreenParticleCtx.beginPath();
   offscreenParticleCtx.lineWidth = particle.size;
   offscreenParticleCtx.strokeStyle = particle.rgbaColor;
@@ -321,7 +325,7 @@ function MAGIC1_PARTICLE_ACTION(particle) {
   if (particle.offCanvas()) particles.makeParticleInactive(particle);
 }
 
-function MAGIC2_PARTICLE_INIT(particle) {
+function MAGIC2_PARTICLE_INIT(particle: Particle): void {
   particle.setRandomColor(MAGIC_COLORS);
 
   particle.size = 4 + Math.random() * 8;
@@ -329,15 +333,15 @@ function MAGIC2_PARTICLE_INIT(particle) {
   particle.y = Math.floor(height / 2);
   particle.initX = particle.x;
   particle.initY = particle.y;
-  particle.magic_2_max_radius =
+  (particle as any).magic_2_max_radius =
     Math.sqrt(width * width + height * height) / 2 + particle.size;
-  particle.magic_2_theta = 0;
-  particle.magic_2_speed = 20;
-  particle.magic_2_radius_spacing = 25 + Math.random() * 55;
-  particle.magic_2_radius = particle.magic_2_radius_spacing;
+  (particle as any).magic_2_theta = 0;
+  (particle as any).magic_2_speed = 20;
+  (particle as any).magic_2_radius_spacing = 25 + Math.random() * 55;
+  (particle as any).magic_2_radius = (particle as any).magic_2_radius_spacing;
 }
 
-function MAGIC2_PARTICLE_ACTION(particle) {
+function MAGIC2_PARTICLE_ACTION(particle: Particle): void {
   offscreenParticleCtx.beginPath();
   offscreenParticleCtx.lineWidth = particle.size;
   offscreenParticleCtx.strokeStyle = particle.rgbaColor;
@@ -345,28 +349,32 @@ function MAGIC2_PARTICLE_ACTION(particle) {
   offscreenParticleCtx.moveTo(particle.x, particle.y);
 
   const newTheta =
-    particle.magic_2_theta + particle.magic_2_speed / particle.magic_2_radius;
-  particle.magic_2_theta = newTheta;
+    (particle as any).magic_2_theta +
+    (particle as any).magic_2_speed / (particle as any).magic_2_radius;
+  (particle as any).magic_2_theta = newTheta;
   const newRadius =
-    (particle.magic_2_theta / TWO_PI) * particle.magic_2_radius_spacing;
-  particle.magic_2_radius = newRadius;
+    ((particle as any).magic_2_theta / TWO_PI) *
+    (particle as any).magic_2_radius_spacing;
+  (particle as any).magic_2_radius = newRadius;
 
-  particle.x = newRadius * Math.cos(newTheta) + particle.initX;
-  particle.y = newRadius * Math.sin(newTheta) + particle.initY;
+  particle.x =
+    newRadius * Math.cos(newTheta) + particle.initX;
+  particle.y =
+    newRadius * Math.sin(newTheta) + particle.initY;
 
   offscreenParticleCtx.lineTo(particle.x, particle.y);
   offscreenParticleCtx.stroke();
 
-  if (newRadius > particle.magic_2_max_radius)
+  if (newRadius > (particle as any).magic_2_max_radius)
     particles.makeParticleInactive(particle);
 }
 
-function METHANE_PARTICLE_INIT(particle) {
+function METHANE_PARTICLE_INIT(particle: Particle): void {
   particle.setColor(FIRE);
   particle.size = 10 + Math.random() * 10;
 }
 
-function METHANE_PARTICLE_ACTION(particle) {
+function METHANE_PARTICLE_ACTION(particle: Particle): void {
   const iterations = particle.actionIterations;
 
   particle.drawCircle(particle.size);
@@ -376,33 +384,33 @@ function METHANE_PARTICLE_ACTION(particle) {
 
 class TreeType {
   constructor() {
-    throw "Should never actually instantiate this.";
+    throw new Error("Should never actually instantiate this.");
   }
 
   /** @nocollapse */
-  static initTreeParticle(_p, _oldP) {}
+  static initTreeParticle(_p: Particle, _oldP: Particle | null): void {}
 
   /** @nocollapse */
-  static branchAngles(_treeParticle) {
-    throw "Branch angles not implemented.";
+  static branchAngles(_treeParticle: Particle): number[] {
+    throw new Error("Branch angles not implemented.");
   }
 
   /** @nocollapse */
-  static branchSpacingFactor(_treeParticle) {
-    throw "Branch spacing factor not implemented.";
+  static branchSpacingFactor(_treeParticle: Particle): number {
+    throw new Error("Branch spacing factor not implemented.");
   }
 }
 
 /* Standard tree */
 class Tree0 extends TreeType {
   /** @nocollapse */
-  static branchAngles(treeParticle) {
+  static branchAngles(treeParticle: Particle): number[] {
     const branchAngle = EIGHTH_PI + Math.random() * QUARTER_PI;
     return [treeParticle.angle + branchAngle, treeParticle.angle - branchAngle];
   }
 
   /** @nocollapse */
-  static branchSpacingFactor(_treeParticle) {
+  static branchSpacingFactor(_treeParticle: Particle): number {
     return 0.9;
   }
 }
@@ -410,24 +418,25 @@ class Tree0 extends TreeType {
 /* Single branch */
 class _Tree1 extends TreeType {
   /** @nocollapse */
-  static initTreeParticle(p, oldP) {
+  static initTreeParticle(p: Particle, oldP: Particle | null): void {
     const branchDirection = oldP
-      ? oldP.branchDirection
+      ? (oldP as any).branchDirection
       : random() < 50
         ? 1
         : -1;
-    p.branchDirection = branchDirection;
+    (p as any).branchDirection = branchDirection;
   }
 
   /** @nocollapse */
-  static branchAngles(treeParticle) {
+  static branchAngles(treeParticle: Particle): number[] {
     const branchAngle =
-      (EIGHTH_PI + Math.random() * EIGHTH_PI) * treeParticle.branchDirection;
+      (EIGHTH_PI + Math.random() * EIGHTH_PI) *
+      (treeParticle as any).branchDirection;
     return [treeParticle.angle + branchAngle, treeParticle.angle];
   }
 
   /** @nocollapse */
-  static branchSpacingFactor(_treeParticle) {
+  static branchSpacingFactor(_treeParticle: Particle): number {
     return 0.7;
   }
 }
@@ -435,7 +444,7 @@ class _Tree1 extends TreeType {
 /* Lots of shallow angle branching */
 class Tree2 extends TreeType {
   /** @nocollapse */
-  static branchAngles(treeParticle) {
+  static branchAngles(treeParticle: Particle): number[] {
     const branchAngle = Math.random() * SIXTEENTH_PI + EIGHTH_PI;
     return [
       treeParticle.angle,
@@ -445,43 +454,44 @@ class Tree2 extends TreeType {
   }
 
   /** @nocollapse */
-  static branchSpacingFactor(_treeParticle) {
+  static branchSpacingFactor(_treeParticle: Particle): number {
     return 0.6;
   }
 }
 
-const TREE_TYPES = [
+const TREE_TYPES: typeof TreeType[] = [
   Tree0,
   /* A little too cluttered to include Tree1 */
   /* Tree1, */
   Tree2,
 ];
-const NUM_TREE_TYPES = TREE_TYPES.length;
+const NUM_TREE_TYPES: number = TREE_TYPES.length;
 
-function TREE_PARTICLE_INIT(particle) {
+function TREE_PARTICLE_INIT(particle: Particle): void {
   particle.setColor(BRANCH);
   particle.size = random() < 50 ? 3 : 4;
 
   const velocity = 1 + Math.random() * 0.5;
   const angle = -1 * (HALF_PI + EIGHTH_PI - Math.random() * QUARTER_PI);
   particle.setVelocity(velocity, angle);
-  particle.generation = 1;
-  particle.branchSpacing = 15 + Math.round(Math.random() * 45);
-  particle.maxBranches = 1 + Math.round(Math.random() * 2);
-  particle.nextBranch = particle.branchSpacing;
-  particle.branches = 0;
+  (particle as any).generation = 1;
+  (particle as any).branchSpacing = 15 + Math.round(Math.random() * 45);
+  (particle as any).maxBranches = 1 + Math.round(Math.random() * 2);
+  (particle as any).nextBranch = (particle as any).branchSpacing;
+  (particle as any).branches = 0;
 
   /* make it more likely to be a standard tree */
   if (random() < 62) {
-    particle.treeType = 0;
+    (particle as any).treeType = 0;
   } else {
-    particle.treeType = 1 + Math.floor(Math.random() * NUM_TREE_TYPES - 1);
+    (particle as any).treeType =
+      1 + Math.floor(Math.random() * (NUM_TREE_TYPES - 1));
   }
 
-  TREE_TYPES[particle.treeType].initTreeParticle(particle, null);
+  TREE_TYPES[(particle as any).treeType].initTreeParticle(particle, null);
 }
 
-function TREE_PARTICLE_ACTION(particle) {
+function TREE_PARTICLE_ACTION(particle: Particle): void {
   offscreenParticleCtx.beginPath();
   offscreenParticleCtx.lineWidth = particle.size;
   offscreenParticleCtx.strokeStyle = particle.rgbaColor;
@@ -500,21 +510,22 @@ function TREE_PARTICLE_ACTION(particle) {
 
   const iterations = particle.actionIterations;
 
-  if (iterations >= particle.nextBranch) {
-    particle.branches++;
+  if (iterations >= (particle as any).nextBranch) {
+    (particle as any).branches++;
 
-    if (particle.maxBranches === 0) {
+    if ((particle as any).maxBranches === 0) {
       particles.makeParticleInactive(particle);
       return;
     }
 
     const leafBranch =
-      particle.color === LEAF || particle.branches === particle.maxBranches;
+      particle.color === LEAF ||
+      (particle as any).branches === (particle as any).maxBranches;
 
-    const treeInfo = TREE_TYPES[particle.treeType];
+    const treeInfo = TREE_TYPES[(particle as any).treeType];
     const branchAngles = treeInfo.branchAngles(particle);
     const numBranches = branchAngles.length;
-    for (var i = 0; i < numBranches; i++) {
+    for (let i = 0; i < numBranches; i++) {
       const b = particles.addActiveParticle(
         TREE_PARTICLE,
         particle.x,
@@ -522,78 +533,108 @@ function TREE_PARTICLE_ACTION(particle) {
         particle.i
       );
       if (!b) break;
-      b.generation = particle.generation + 1;
-      b.maxBranches = Math.max(0, particle.maxBranches - 1);
-      b.branchSpacing =
-        particle.branchSpacing * treeInfo.branchSpacingFactor(particle);
-      b.nextBranch = b.branchSpacing;
-      b.angle = branchAngles[i];
-      b.setVelocity(particle.velocity, b.angle);
+      (b as any).generation = (particle as any).generation + 1;
+      (b as any).maxBranches = Math.max(
+        0,
+        (particle as any).maxBranches - 1
+      );
+      (b as any).branchSpacing =
+        (particle as any).branchSpacing *
+        treeInfo.branchSpacingFactor(particle);
+      (b as any).nextBranch = (b as any).branchSpacing;
+      (b as any).angle = branchAngles[i];
+      b.setVelocity(particle.velocity, (b as any).angle);
       b.size = Math.max(particle.size - 1, 2);
-      b.treeType = particle.treeType;
+      (b as any).treeType = (particle as any).treeType;
       treeInfo.initTreeParticle(b, particle);
 
       if (leafBranch) b.setColor(LEAF);
     }
 
-    if (particle.branches >= particle.maxBranches) {
+    if ((particle as any).branches >= (particle as any).maxBranches) {
       particles.makeParticleInactive(particle);
       return;
     }
 
-    if (particle.branchSpacing > 45) particle.branchSpacing *= 0.8;
-    particle.nextBranch =
-      iterations + particle.branchSpacing * (Math.random() * 0.35 + 0.65);
+    if ((particle as any).branchSpacing > 45)
+      (particle as any).branchSpacing *= 0.8;
+    (particle as any).nextBranch =
+      iterations +
+      (particle as any).branchSpacing * (Math.random() * 0.35 + 0.65);
   }
 }
 
-function CHARGED_NITRO_PARTICLE_INIT(particle) {
+function CHARGED_NITRO_PARTICLE_INIT(particle: Particle): void {
   particle.setColor(FIRE);
   particle.size = 4;
   particle.xVelocity = 0;
   particle.yVelocity = -100;
 
   /* Search upwards for a WALL collision (but don't check every pixel) */
-  particle.minY = -1;
+  (particle as any).minY = -1;
   const step = (3 + Math.round(Math.random() * 2)) * width;
-  for (var idx = particle.i; idx > -1; idx -= step) {
+  for (let idx = particle.i; idx > -1; idx -= step) {
     if (gameImagedata32[idx] === WALL) {
-      particle.minY = idx / width;
+      (particle as any).minY = idx / width;
       break;
     }
   }
 }
 
-function CHARGED_NITRO_PARTICLE_ACTION(particle) {
+function CHARGED_NITRO_PARTICLE_ACTION(particle: Particle): void {
   offscreenParticleCtx.beginPath();
   offscreenParticleCtx.lineWidth = particle.size;
   offscreenParticleCtx.strokeStyle = particle.rgbaColor;
   offscreenParticleCtx.lineCap = "square";
   offscreenParticleCtx.moveTo(particle.initX, particle.initY);
   particle.x += particle.xVelocity;
-  particle.y = Math.max(particle.minY, particle.y + particle.yVelocity);
+  particle.y = Math.max(
+    (particle as any).minY,
+    particle.y + particle.yVelocity
+  );
   offscreenParticleCtx.lineTo(particle.x, particle.y);
   offscreenParticleCtx.stroke();
 
-  if (particle.y <= particle.minY || particle.offCanvas()) {
+  if (particle.y <= (particle as any).minY || particle.offCanvas()) {
     particles.makeParticleInactive(particle);
     return;
   }
 }
 
-function NUKE_PARTICLE_INIT(particle) {
+function NUKE_PARTICLE_INIT(particle: Particle): void {
   particle.setColor(FIRE);
   const maxDimension = Math.max(width, height);
   particle.size = maxDimension / 4 + (Math.random() * maxDimension) / 8;
 }
 
-function NUKE_PARTICLE_ACTION(particle) {
+function NUKE_PARTICLE_ACTION(particle: Particle): void {
   particle.drawCircle(particle.size);
 
   if (particle.actionIterations > 4) particles.makeParticleInactive(particle);
 }
 
 class Particle {
+  type: number;
+  initX: number;
+  initY: number;
+  x: number;
+  y: number;
+  i: number;
+  color: number;
+  rgbaColor: string;
+  velocity: number;
+  angle: number;
+  xVelocity: number;
+  yVelocity: number;
+  size: number;
+  actionIterations: number;
+  active: boolean;
+  next: Particle | null;
+  prev: Particle | null;
+  reinitialized: boolean;
+
+  static warned_unpaintable_color: boolean = false;
+
   constructor() {
     this.type = UNKNOWN_PARTICLE;
     this.initX = -1;
@@ -615,7 +656,7 @@ class Particle {
     this.reinitialized = false;
   }
 
-  setColor(hexColor) {
+  setColor(hexColor: number): void {
     if (!Particle.warned_unpaintable_color) {
       if (!(hexColor in PAINTABLE_PARTICLE_COLORS)) {
         console.log("Unpaintable particle color: " + hexColor);
@@ -631,18 +672,18 @@ class Particle {
     this.rgbaColor = "rgba(" + r + "," + g + "," + b + ", 1)";
   }
 
-  setRandomColor(whitelist) {
+  setRandomColor(whitelist: number[]): void {
     const colorIdx = Math.floor(Math.random() * whitelist.length);
     this.setColor(whitelist[colorIdx]);
   }
 
-  offCanvas() {
+  offCanvas(): boolean {
     const x = this.x;
     const y = this.y;
     return x < 0 || x > MAX_X_IDX || y < 0 || y > MAX_Y_IDX;
   }
 
-  setVelocity(velocity, angle) {
+  setVelocity(velocity: number, angle: number): void {
     this.velocity = velocity;
     this.angle = angle;
     this.xVelocity = velocity * Math.cos(angle);
@@ -655,7 +696,7 @@ class Particle {
    *
    * Expects caller has updated particle's x and y velocity.
    */
-  aboutToHit() {
+  aboutToHit(): number {
     const radius = this.size / 2;
     const theta = Math.atan2(this.yVelocity, this.xVelocity);
     const xPrime = this.x + Math.cos(theta) * radius;
@@ -667,7 +708,7 @@ class Particle {
     return gameImagedata32[idx];
   }
 
-  drawCircle(radius) {
+  drawCircle(radius: number): void {
     offscreenParticleCtx.beginPath();
     offscreenParticleCtx.lineWidth = 0;
     offscreenParticleCtx.fillStyle = this.rgbaColor;
@@ -676,13 +717,17 @@ class Particle {
   }
 }
 
-Particle.warned_unpaintable_color = false;
-
 /*
  * Two doubly-linked lists: one for active and one for
  * inactive particles
  */
 class ParticleList {
+  activeHead: Particle | null;
+  activeSize: number;
+  inactiveHead: Particle | null;
+  inactiveSize: number;
+  particleCounts: Uint32Array;
+
   constructor() {
     this.activeHead = null;
     this.activeSize = 0;
@@ -691,16 +736,21 @@ class ParticleList {
     this.particleCounts = new Uint32Array(__particleInit.length);
 
     /* This probably isn't necessary, but I don't trust javascript */
-    for (var i = 0; i < this.particleCounts.length; i++) {
+    for (let i = 0; i < this.particleCounts.length; i++) {
       this.particleCounts[i] = 0;
     }
   }
 
-  addActiveParticle(type, x, y, i) {
+  addActiveParticle(
+    type: number,
+    x: number,
+    y: number,
+    i: number
+  ): Particle | null {
     if (this.inactiveSize === 0) return null;
 
-    const particle = this.inactiveHead;
-    this.inactiveHead = this.inactiveHead.next;
+    const particle = this.inactiveHead!;
+    this.inactiveHead = this.inactiveHead!.next;
     if (this.inactiveHead) this.inactiveHead.prev = null;
     this.inactiveSize--;
 
@@ -731,7 +781,7 @@ class ParticleList {
     return particle;
   }
 
-  makeParticleInactive(particle) {
+  makeParticleInactive(particle: Particle): void {
     particle.active = false;
     this.particleCounts[particle.type]--;
     particle.type = UNKNOWN_PARTICLE;
@@ -759,8 +809,8 @@ class ParticleList {
     this.inactiveSize++;
   }
 
-  inactivateAll() {
-    var particle = this.activeHead;
+  inactivateAll(): void {
+    let particle = this.activeHead;
     while (particle) {
       const next = particle.next;
       this.makeParticleInactive(particle);
@@ -768,8 +818,8 @@ class ParticleList {
     }
   }
 
-  reinitializeParticle(particle, newType) {
-    if (!particle.active) throw "Can only be used with active particles";
+  reinitializeParticle(particle: Particle, newType: number): void {
+    if (!particle.active) throw new Error("Can only be used with active particles");
 
     this.particleCounts[particle.type]--;
     this.particleCounts[newType]++;
@@ -778,7 +828,7 @@ class ParticleList {
     __particleInit[newType](particle);
   }
 
-  particleActive(particleType) {
+  particleActive(particleType: number): boolean {
     return this.particleCounts[particleType] > 0;
   }
 }
@@ -792,16 +842,16 @@ export const particles = new ParticleList();
  * a valid color for painting. Hence, this dictionary of colors that can
  * be copied from the particle canvas to the main canvas.
  */
-const PAINTABLE_PARTICLE_COLORS = {};
+const PAINTABLE_PARTICLE_COLORS: Record<number, null> = {};
 
-const MAGIC_COLORS = [];
+const MAGIC_COLORS: number[] = [];
 
-export function initParticles() {
+export function initParticles(): void {
   if (__particleInit.length !== __particleActions.length)
-    throw "Particle arrays must be same length";
+    throw new Error("Particle arrays must be same length");
 
-  var numParticlesToCreate = MAX_NUM_PARTICLES;
-  var prevParticle;
+  let numParticlesToCreate = MAX_NUM_PARTICLES;
+  let prevParticle: Particle;
 
   /* Setup the head */
   particles.inactiveHead = new Particle();
@@ -852,7 +902,7 @@ export function initParticles() {
   Object.freeze(MAGIC_COLORS);
 }
 
-export function updateParticles() {
+export function updateParticles(): void {
   if (!particles.activeHead) return;
 
   const canvasWidth = offscreenParticleCanvas.width;
@@ -865,10 +915,10 @@ export function updateParticles() {
   offscreenParticleCtx.fill();
 
   /* perform particle actions */
-  var particle = particles.activeHead;
+  let particle: Particle | null = particles.activeHead;
   while (particle) {
     /* grab next before doing action, as next could change */
-    const next = particle.next;
+    const next: Particle | null = particle.next;
     particle.actionIterations++;
     __particleActions[particle.type](particle);
     particle = next;
@@ -882,8 +932,8 @@ export function updateParticles() {
     canvasHeight
   );
   const particleImageData32 = new Uint32Array(particleImageData.data.buffer);
-  var x, y;
-  var __yOffset = 0;
+  let x: number, y: number;
+  let __yOffset = 0;
   const aliasingSearchDistance = 3;
   for (y = 0; y !== canvasHeight; y++) {
     const yOffset = __yOffset; /* optimization: make const copy */
@@ -909,7 +959,7 @@ export function updateParticles() {
         gameImagedata32[i] = particleColor;
         continue;
       } else {
-        var searchColor;
+        let searchColor: number;
         if (x - aliasingSearchDistance >= 0) {
           searchColor = particleImageData32[i - aliasingSearchDistance];
           if (searchColor in PAINTABLE_PARTICLE_COLORS) {
@@ -925,14 +975,16 @@ export function updateParticles() {
           }
         }
         if (y - aliasingSearchDistance >= 0) {
-          searchColor = particleImageData32[i - aliasingSearchDistance * width];
+          searchColor =
+            particleImageData32[i - aliasingSearchDistance * width];
           if (searchColor in PAINTABLE_PARTICLE_COLORS) {
             gameImagedata32[i] = searchColor;
             continue;
           }
         }
         if (y + aliasingSearchDistance <= MAX_Y_IDX) {
-          searchColor = particleImageData32[i + aliasingSearchDistance * width];
+          searchColor =
+            particleImageData32[i + aliasingSearchDistance * width];
           if (searchColor in PAINTABLE_PARTICLE_COLORS) {
             gameImagedata32[i] = searchColor;
             continue;

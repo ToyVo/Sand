@@ -22,7 +22,7 @@
     <div class="wrapper" id="gameWrapper">
       <canvas id="mainCanvas"></canvas>
       <div id="menuWrapper">
-        <table id="elementTable"></table>
+        <div id="elementMenu"></div>
         <div id="optionsCol1" class="optionsCol">
           <div id="penSizeDiv">
             <label for="pensize">Pen Size</label>
@@ -49,6 +49,10 @@
           <div>
             <label for="overwriteCheckbox">Overwrite</label>
             <input type="checkbox" id="overwriteCheckbox" />
+          </div>
+          <div>
+            <label for="voidModeCheckbox">Void Mode</label>
+            <input type="checkbox" id="voidModeCheckbox" />
           </div>
           <div id="speedSliderDiv">
             <label for="speedSlider">Speed</label>
@@ -85,6 +89,6 @@
         <div id="fps-counter"></div>
       </div>
     </div>
-  <script type="module" src="./src/game.js"></script>
+  <script type="module" src="./src/game.ts"></script>
   </body>
 </html>

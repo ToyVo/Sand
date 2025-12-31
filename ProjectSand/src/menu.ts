@@ -45,6 +45,19 @@ import {
   THERMITE,
   ICE,
   ZOMBIE,
+  SALT_WATER,
+  FALLING_WAX,
+  CHILLED_ICE,
+  ROCK,
+  STEAM,
+  WET_SOIL,
+  BRANCH,
+  LEAF,
+  POLLEN,
+  CHARGED_NITRO,
+  BURNING_THERMITE,
+  getVOID_MODE_ENABLED,
+  setVOID_MODE_ENABLED,
 } from "./elements.js";
 import { setZombieCount } from "./zombies.js";
 import {
@@ -70,14 +83,14 @@ import {
 } from "./spigots.js";
 
 /* Configuration of the menu */
-const ELEMENT_MENU_ELEMENTS_PER_ROW = 4;
-export const PEN_SIZES = [2, 4, 8, 16, 32, 64];
-const PEN_SIZE_LABELS = ["1px", "2px", "4px", "8px", "16px", "32px"];
-export const DEFAULT_PEN_IDX = 1;
+const ELEMENT_MENU_ELEMENTS_PER_ROW: number = 4;
+export const PEN_SIZES: number[] = [2, 4, 8, 16, 32, 64];
+const PEN_SIZE_LABELS: string[] = ["1px", "2px", "4px", "8px", "16px", "32px"];
+export const DEFAULT_PEN_IDX: number = 1;
 
 /* Elements listed in the menu */
 // prettier-ignore
-const elementMenuItems = [
+const elementMenuItems: number[] = [
   WALL, SAND, WATER, PLANT,
   FIRE, SPOUT, WELL, SALT,
   OIL, WAX, TORCH, ICE,
@@ -85,9 +98,12 @@ const elementMenuItems = [
   LAVA, CRYO, FUSE, MYSTERY,
   CONCRETE, METHANE, SOIL, ACID,
   THERMITE, BACKGROUND, ZOMBIE,
+  SALT_WATER, FALLING_WAX, CHILLED_ICE,
+  ROCK, STEAM, WET_SOIL, BRANCH,
+  LEAF, POLLEN, CHARGED_NITRO, BURNING_THERMITE,
 ];
 
-const menuNames = {};
+const menuNames: Record<number, string> = {};
 menuNames[WALL] = "WALL";
 menuNames[SAND] = "SAND";
 menuNames[WATER] = "WATER";
@@ -115,53 +131,65 @@ menuNames[SOIL] = "SOIL";
 menuNames[ACID] = "ACID";
 menuNames[THERMITE] = "THERMITE";
 menuNames[ZOMBIE] = "HAND";
+menuNames[SALT_WATER] = "SALT WATER";
+menuNames[FALLING_WAX] = "FALLING WAX";
+menuNames[CHILLED_ICE] = "CHILLED ICE";
+menuNames[ROCK] = "ROCK";
+menuNames[STEAM] = "STEAM";
+menuNames[WET_SOIL] = "WET SOIL";
+menuNames[BRANCH] = "BRANCH";
+menuNames[LEAF] = "LEAF";
+menuNames[POLLEN] = "POLLEN";
+menuNames[CHARGED_NITRO] = "CHARGED NITRO";
+menuNames[BURNING_THERMITE] = "BURNING THERMITE";
 
 /*
  * Some element colors do not have very good contrast against
  * the menu background. For these elements, we use a replacement
  * color for the menu text.
  */
-const menuAltColors = {};
+const menuAltColors: Record<number, string> = {};
 menuAltColors[WATER] = "rgb(0, 130, 255)";
 menuAltColors[WALL] = "rgb(160, 160, 160)";
 menuAltColors[BACKGROUND] = "rgb(200, 100, 200)";
 menuAltColors[WELL] = "rgb(158, 13, 33)";
 menuAltColors[SOIL] = "rgb(171, 110, 53)";
 
-export function initMenu() {
+export function initMenu(): void {
   /* The wrapper div that holds the entire menu */
   document.getElementById("menuWrapper");
 
   /* Set up the wrapper div that holds the element selectors */
-  const elementMenu = document.getElementById("elementTable");
+  const elementMenu = document.getElementById(
+    "elementMenu"
+  ) as HTMLDivElement;
+  if (!elementMenu) throw new Error("elementMenu not found");
   elementMenu.style.width =
     "50%"; /* force browser to scrunch the element menu */
   const numRows = Math.ceil(
     elementMenuItems.length / ELEMENT_MENU_ELEMENTS_PER_ROW
   );
-  var elemIdx = 0;
-  var i, k;
+  let elemIdx = 0;
+  let i: number, k: number;
   for (i = 0; i < numRows; i++) {
-    const row = elementMenu.insertRow(i);
     for (k = 0; k < ELEMENT_MENU_ELEMENTS_PER_ROW; k++) {
       if (elemIdx >= elementMenuItems.length) break;
 
-      const cell = row.insertCell(k);
       const elemButton = document.createElement("input");
-      cell.appendChild(elemButton);
+      elementMenu.appendChild(elemButton);
 
       elemButton.type = "button";
       elemButton.className = "elementMenuButton";
 
       const elemType = elementMenuItems[elemIdx];
       if (!(elemType in menuNames))
-        throw "element is missing a canonical name: " + elemType;
+        throw new Error("element is missing a canonical name: " + elemType);
       elemButton.value = menuNames[elemType];
 
       const elemColorRGBA = elemType;
-      elemButton.id = elemColorRGBA;
+      elemButton.id = elemColorRGBA.toString();
 
-      var elemMenuColor;
+      let elemMenuColor: string;
       if (elemType in menuAltColors) elemMenuColor = menuAltColors[elemType];
       else
         elemMenuColor =
@@ -175,9 +203,12 @@ export function initMenu() {
       elemButton.style.color = elemMenuColor;
 
       elemButton.addEventListener("click", function () {
-        document
-          .getElementById(getSELECTED_ELEM().toString())
-          .classList.remove("selectedElementMenuButton");
+        const selectedElem = document.getElementById(
+          getSELECTED_ELEM().toString()
+        ) as HTMLInputElement;
+        if (selectedElem) {
+          selectedElem.classList.remove("selectedElementMenuButton");
+        }
         elemButton.classList.add("selectedElementMenuButton");
         setSELECTED_ELEM(parseInt(elemButton.id, 10));
       });
@@ -185,16 +216,22 @@ export function initMenu() {
       elemIdx++;
     }
   }
-  document.getElementById(getSELECTED_ELEM().toString()).click();
+  const defaultButton = document.getElementById(
+    getSELECTED_ELEM().toString()
+  ) as HTMLInputElement;
+  if (defaultButton) {
+    defaultButton.click();
+  }
 
   /* Set up pensize options */
-  const pensizes = document.getElementById("pensize");
+  const pensizes = document.getElementById("pensize") as HTMLSelectElement;
+  if (!pensizes) throw new Error("pensize not found");
   for (i = 0; i < PEN_SIZES.length; i++) {
     const p = document.createElement("option");
-    p.value = PEN_SIZES[i];
+    p.value = PEN_SIZES[i].toString();
     p.text = PEN_SIZE_LABELS[i];
     if (i === DEFAULT_PEN_IDX) {
-      p.selected = "selected";
+      p.selected = true;
       setPENSIZE(parseInt(p.value, 10));
     }
     pensizes.add(p);
@@ -204,29 +241,31 @@ export function initMenu() {
   });
 
   /* Set up spigot size options */
-  const spigotTypes = [
-    document.getElementById("spigot1Type"),
-    document.getElementById("spigot2Type"),
-    document.getElementById("spigot3Type"),
-    document.getElementById("spigot4Type"),
+  const spigotTypes: HTMLSelectElement[] = [
+    document.getElementById("spigot1Type") as HTMLSelectElement,
+    document.getElementById("spigot2Type") as HTMLSelectElement,
+    document.getElementById("spigot3Type") as HTMLSelectElement,
+    document.getElementById("spigot4Type") as HTMLSelectElement,
   ];
-  const spigotSizes = [
-    document.getElementById("spigot1Size"),
-    document.getElementById("spigot2Size"),
-    document.getElementById("spigot3Size"),
-    document.getElementById("spigot4Size"),
+  const spigotSizes: HTMLSelectElement[] = [
+    document.getElementById("spigot1Size") as HTMLSelectElement,
+    document.getElementById("spigot2Size") as HTMLSelectElement,
+    document.getElementById("spigot3Size") as HTMLSelectElement,
+    document.getElementById("spigot4Size") as HTMLSelectElement,
   ];
-  if (spigotTypes.length !== spigotSizes.length) throw "should be same length";
+  if (spigotTypes.length !== spigotSizes.length)
+    throw new Error("should be same length");
   for (i = 0; i < spigotTypes.length; i++) {
     const typeSelector = spigotTypes[i];
     const sizeSelector = spigotSizes[i];
+    if (!typeSelector || !sizeSelector) continue;
     for (k = 0; k < SPIGOT_ELEMENT_OPTIONS.length; k++) {
       const type = SPIGOT_ELEMENT_OPTIONS[k];
       const option = document.createElement("option");
-      option.value = type;
+      option.value = type.toString();
       option.text = menuNames[type];
       if (i === k) {
-        option.selected = "selected";
+        option.selected = true;
         SPIGOT_ELEMENTS[i] = type;
       }
       typeSelector.add(option);
@@ -234,85 +273,123 @@ export function initMenu() {
     for (k = 0; k < SPIGOT_SIZE_OPTIONS.length; k++) {
       const size = SPIGOT_SIZE_OPTIONS[k];
       const option = document.createElement("option");
-      option.value = size;
+      option.value = size.toString();
       option.text = k.toString(10);
       if (k === DEFAULT_SPIGOT_SIZE_IDX) {
-        option.selected = "selected";
+        option.selected = true;
         SPIGOT_SIZES[i] = size;
       }
       sizeSelector.add(option);
     }
   }
-  spigotTypes[0].addEventListener("change", function () {
+  spigotTypes[0]?.addEventListener("change", function () {
     SPIGOT_ELEMENTS[0] = parseInt(spigotTypes[0].value, 10);
   });
-  spigotTypes[1].addEventListener("change", function () {
+  spigotTypes[1]?.addEventListener("change", function () {
     SPIGOT_ELEMENTS[1] = parseInt(spigotTypes[1].value, 10);
   });
-  spigotTypes[2].addEventListener("change", function () {
+  spigotTypes[2]?.addEventListener("change", function () {
     SPIGOT_ELEMENTS[2] = parseInt(spigotTypes[2].value, 10);
   });
-  spigotTypes[3].addEventListener("change", function () {
+  spigotTypes[3]?.addEventListener("change", function () {
     SPIGOT_ELEMENTS[3] = parseInt(spigotTypes[3].value, 10);
   });
-  spigotSizes[0].addEventListener("change", function () {
+  spigotSizes[0]?.addEventListener("change", function () {
     SPIGOT_SIZES[0] = parseInt(spigotSizes[0].value, 10);
   });
-  spigotSizes[1].addEventListener("change", function () {
+  spigotSizes[1]?.addEventListener("change", function () {
     SPIGOT_SIZES[1] = parseInt(spigotSizes[1].value, 10);
   });
-  spigotSizes[2].addEventListener("change", function () {
+  spigotSizes[2]?.addEventListener("change", function () {
     SPIGOT_SIZES[2] = parseInt(spigotSizes[2].value, 10);
   });
-  spigotSizes[3].addEventListener("change", function () {
+  spigotSizes[3]?.addEventListener("change", function () {
     SPIGOT_SIZES[3] = parseInt(spigotSizes[3].value, 10);
   });
 
   /* 'overwrite' checkbox */
-  const overwriteCheckbox = document.getElementById("overwriteCheckbox");
-  overwriteCheckbox.checked = getOVERWRITE_ENABLED();
-  overwriteCheckbox.addEventListener("click", function () {
-    setOVERWRITE_ENABLED(overwriteCheckbox.checked);
-  });
+  const overwriteCheckbox = document.getElementById(
+    "overwriteCheckbox"
+  ) as HTMLInputElement;
+  if (overwriteCheckbox) {
+    overwriteCheckbox.checked = getOVERWRITE_ENABLED();
+    overwriteCheckbox.addEventListener("click", function () {
+      setOVERWRITE_ENABLED(overwriteCheckbox.checked);
+    });
+  }
+
+  /* 'void mode' checkbox */
+  const voidModeCheckbox = document.getElementById(
+    "voidModeCheckbox"
+  ) as HTMLInputElement;
+  if (voidModeCheckbox) {
+    voidModeCheckbox.checked = getVOID_MODE_ENABLED();
+    voidModeCheckbox.addEventListener("click", function () {
+      setVOID_MODE_ENABLED(voidModeCheckbox.checked);
+    });
+  }
 
   /* speed slider */
-  const speedSlider = document.getElementById("speedSlider");
-  speedSlider.min = 0;
-  speedSlider.max = MAX_FPS;
-  speedSlider.value = DEFAULT_FPS;
-  speedSlider.addEventListener("input", function () {
-    const val = parseInt(speedSlider.value, 10);
-    /* make 'magnetic' towards the default */
-    if (Math.abs(val - DEFAULT_FPS) < 10) speedSlider.value = DEFAULT_FPS;
-    setFPS(parseInt(speedSlider.value, 10));
-  });
+  const speedSlider = document.getElementById(
+    "speedSlider"
+  ) as HTMLInputElement;
+  if (speedSlider) {
+    speedSlider.min = "0";
+    speedSlider.max = MAX_FPS.toString();
+    speedSlider.value = DEFAULT_FPS.toString();
+    speedSlider.addEventListener("input", function () {
+      const val = parseInt(speedSlider.value, 10);
+      /* make 'magnetic' towards the default */
+      if (Math.abs(val - DEFAULT_FPS) < 10)
+        speedSlider.value = DEFAULT_FPS.toString();
+      setFPS(parseInt(speedSlider.value, 10));
+    });
+  }
 
   /* zombie slider */
-  const zombieSlider = document.getElementById("zombieSlider");
-  zombieSlider.min = 0;
-  zombieSlider.max = MAX_ZOMBIES;
-  zombieSlider.value = 0;
-  zombieSlider.addEventListener("input", function () {
-    setZombieCount(parseInt(zombieSlider.value, 10));
-  });
+  const zombieSlider = document.getElementById(
+    "zombieSlider"
+  ) as HTMLInputElement;
+  if (zombieSlider) {
+    zombieSlider.min = "0";
+    zombieSlider.max = MAX_ZOMBIES.toString();
+    zombieSlider.value = "0";
+    zombieSlider.addEventListener("input", function () {
+      setZombieCount(parseInt(zombieSlider.value, 10));
+    });
+  }
 
   /* clear button */
-  const clearButton = document.getElementById("clearButton");
-  clearButton.onclick = clearGameCanvas;
+  const clearButton = document.getElementById(
+    "clearButton"
+  ) as HTMLInputElement;
+  if (clearButton) {
+    clearButton.onclick = clearGameCanvas;
+  }
 
   /* save button */
-  const saveButton = document.getElementById("saveButton");
-  saveButton.onclick = saveGameCanvas;
+  const saveButton = document.getElementById("saveButton") as HTMLInputElement;
+  if (saveButton) {
+    saveButton.onclick = saveGameCanvas;
+  }
 
   /* load button */
-  const loadButton = document.getElementById("loadButton");
-  loadButton.onclick = loadGameCanvas;
+  const loadButton = document.getElementById("loadButton") as HTMLInputElement;
+  if (loadButton) {
+    loadButton.onclick = loadGameCanvas;
+  }
 }
 
-export function drawFPSLabel(fps) {
-  document.getElementById("fps-counter").innerText = "FPS: " + fps;
+export function drawFPSLabel(fps: number): void {
+  const fpsCounter = document.getElementById("fps-counter");
+  if (fpsCounter) {
+    fpsCounter.innerText = "FPS: " + fps;
+  }
 }
 
-export function drawZombieCount(val) {
-  document.getElementById("zombieCount").innerText = val;
+export function drawZombieCount(val: number): void {
+  const zombieCount = document.getElementById("zombieCount");
+  if (zombieCount) {
+    zombieCount.innerText = val.toString();
+  }
 }

@@ -48,38 +48,55 @@ import {
 } from "./elements.js";
 import { gameImagedata32, MAX_IDX } from "./game.js";
 
-export const zombies = []; /* Global list of all active zombies */
+// Extended Matter.Body type with custom properties
+type ExtendedBody = any & {
+  __isHead?: boolean;
+  __interactsWithMainCanvas?: boolean;
+  __isFoot?: boolean;
+  __isNeck?: boolean;
+  __isArm?: boolean;
+  __isLeg?: boolean;
+  collisionFilter?: { group?: number };
+  constraintImpulse?: { x: number; y: number };
+  velocity?: { x: number; y: number };
+  position?: { x: number; y: number };
+  isStatic?: boolean;
+  angularVelocity?: number;
+  frictionAir?: number;
+};
 
-const DEFAULT_AIR_FRICTION = 0.015; /* library default is 0.01 */
-const ZOMBIE_BURNING_AIR_FRICTION = 0.125;
+export const zombies: Zombie[] = []; /* Global list of all active zombies */
+
+const DEFAULT_AIR_FRICTION: number = 0.015; /* library default is 0.01 */
+const ZOMBIE_BURNING_AIR_FRICTION: number = 0.125;
 
 /*
  * DISCLAIMER: Not everything scales perfectly as zombie size is changed.
  */
-const ZOMBIE_SIZE_SCALE = 0.75;
+const ZOMBIE_SIZE_SCALE: number = 0.75;
 
 /* Zombie states */
-export const ZOMBIE_STATE_NORMAL = 0;
-export const ZOMBIE_STATE_BURNING = 1;
-export const ZOMBIE_STATE_WET = 2;
-export const ZOMBIE_STATE_FROZEN = 3;
+export const ZOMBIE_STATE_NORMAL: number = 0;
+export const ZOMBIE_STATE_BURNING: number = 1;
+export const ZOMBIE_STATE_WET: number = 2;
+export const ZOMBIE_STATE_FROZEN: number = 3;
 
 /*
  * Set the total number of zombies to `count`. This will either create new zombies or
  * remove existing ones, depending on what the current zombie count is.
  */
-export function setZombieCount(count) {
-  var delta = count - zombies.length;
+export function setZombieCount(count: number): void {
+  const delta = count - zombies.length;
   if (delta == 0) {
     return;
   }
 
   if (delta > 0) {
-    for (var i = 0; i < delta; i++) {
+    for (let i = 0; i < delta; i++) {
       new Zombie();
     }
   } else {
-    for (var j = delta; j < 0; j++) {
+    for (let j = delta; j < 0; j++) {
       popZombie();
     }
   }
@@ -88,22 +105,24 @@ export function setZombieCount(count) {
 }
 
 /* Deletes the zombie at the end of the zombies list. */
-function popZombie() {
-  var zombie = zombies.pop();
-  Matter.Composite.remove(softBodyEngine.world, [zombie.compositeBody]);
+function popZombie(): void {
+  const zombie = zombies.pop();
+  if (zombie) {
+    Matter.Composite.remove(softBodyEngine.world, [zombie.compositeBody]);
+  }
 }
 
 /* Replace the zombie at the given index with a new zombie. */
-function replaceZombie(idx) {
+function replaceZombie(idx: number): void {
   if (idx < 0 || idx >= zombies.length) {
-    throw "invalid replace_idx";
+    throw new Error("invalid replace_idx");
   }
 
-  var zombie = new Zombie();
+  const zombie = new Zombie();
   if (zombies.pop() !== zombie) {
-    throw "bug in replace";
+    throw new Error("bug in replace");
   }
-  var oldZombie = zombies[idx];
+  const oldZombie = zombies[idx];
   zombies[idx] = zombie;
   Matter.Composite.remove(softBodyEngine.world, [oldZombie.compositeBody]);
 }
@@ -112,7 +131,7 @@ function replaceZombie(idx) {
  * Given a list of zombies, draw them to the main canvas using
  * the given color.
  */
-export function drawZombies(zombieList, color) {
+export function drawZombies(zombieList: Zombie[], color: number): void {
   /* Clear the slate by first filling to black */
   softBodyCtx.beginPath();
   softBodyCtx.rect(0, 0, width, height);
@@ -122,10 +141,10 @@ export function drawZombies(zombieList, color) {
   softBodyCtx.beginPath();
 
   const numZombies = zombieList.length;
-  for (var i = 0; i < numZombies; i++) {
-    var bodies = zombieList[i].compositeBody.bodies;
+  for (let i = 0; i < numZombies; i++) {
+    const bodies = zombieList[i].compositeBody.bodies;
     const numBodies = bodies.length;
-    for (var j = 0; j < numBodies; j++) {
+    for (let j = 0; j < numBodies; j++) {
       drawBody(softBodyCtx, bodies[j]);
     }
   }
@@ -136,7 +155,7 @@ export function drawZombies(zombieList, color) {
 
   const imgData = softBodyCtx.getImageData(0, 0, width, height);
   const imgData32 = new Uint32Array(imgData.data.buffer);
-  for (var idx = 0; idx < MAX_IDX; idx++) {
+  for (let idx = 0; idx < MAX_IDX; idx++) {
     if (imgData32[idx] === 0xff000000) {
       continue;
     }
@@ -145,6 +164,13 @@ export function drawZombies(zombieList, color) {
 }
 
 class Zombie {
+  collisionGroup: number;
+  compositeBody: any; // Matter.Composite type
+  cooldown: number;
+  state: number;
+  burnRespawnTime: number;
+  forceNonStatic: boolean;
+
   /*
    * Create a new zombie and add it to the simulation.
    */
@@ -180,20 +206,21 @@ class Zombie {
     Matter.Composite.add(softBodyEngine.world, [this.compositeBody]);
   }
 
-  setAirFriction(friction) {
+  setAirFriction(friction: number): void {
     const bodies = this.compositeBody.bodies;
     const numBodies = bodies.length;
-    for (var i = 0; i < numBodies; i++) {
+    for (let i = 0; i < numBodies; i++) {
       bodies[i].frictionAir = friction;
     }
   }
 
   /* Returns true if the user is currently dragging this zombie */
-  isDragging() {
+  isDragging(): boolean {
     return (
-      softBodyDragStart &&
+      softBodyDragStart !== 0 &&
       softBodyMouseConstraint.body &&
-      softBodyMouseConstraint.body.collisionFilter.group === this.collisionGroup
+      (softBodyMouseConstraint.body as ExtendedBody).collisionFilter.group ===
+        this.collisionGroup
     );
   }
 
@@ -201,7 +228,7 @@ class Zombie {
    * Advance the zombie animation by a single step. This single step
    * represents the given number of `milliseconds`.
    */
-  animate(now, zombieIdx, milliseconds) {
+  animate(now: number, zombieIdx: number, milliseconds: number): void {
     if (this.cooldown <= 0 && random() < 2) {
       this.cooldown = Math.round(Math.random() * 180);
     }
@@ -234,8 +261,8 @@ class Zombie {
 
     const bodies = this.compositeBody.bodies;
     const numBodies = bodies.length;
-    for (var j = 0; j < numBodies; j++) {
-      var body = bodies[j];
+    for (let j = 0; j < numBodies; j++) {
+      const body = bodies[j] as ExtendedBody;
 
       /*
        * Sometimes zombies get stuck in a stretched out position, with
@@ -260,7 +287,7 @@ class Zombie {
           Math.abs(velocity.x) > maxVelocity ||
           Math.abs(velocity.y) > maxVelocity
         ) {
-          var newVelocity = {
+          const newVelocity = {
             x: clamp(velocity.x, -maxVelocity, maxVelocity),
             y: clamp(velocity.y, -maxVelocity, maxVelocity),
           };
@@ -300,7 +327,7 @@ class Zombie {
       }
 
       /* Handle collisions with elements on the main canvas */
-      var makeStatic = false;
+      let makeStatic = false;
       if (body.__interactsWithMainCanvas) {
         /*
          * If we're colliding with something on the main canvas, we
@@ -315,9 +342,9 @@ class Zombie {
           } else if (this.state === ZOMBIE_STATE_BURNING) {
             makeStatic = false;
           } else if (body.__isFoot) {
-            var head = bodies[0];
+            const head = bodies[0] as ExtendedBody;
             if (!head.__isHead) {
-              throw "head misordered";
+              throw new Error("head misordered");
             }
             /*
              * If we're upside down, make the feet less sticky.
@@ -385,7 +412,11 @@ class Zombie {
    * remove points of collision, or it may initiate free dragging (in which
    * all collisions are ignored).
    */
-  handleCanvasCollisions(body, now, isDragging) {
+  handleCanvasCollisions(
+    body: ExtendedBody,
+    now: number,
+    isDragging: boolean
+  ): boolean {
     /*
      * If the user is trying to drag a zombie, stop enforcing collisions against
      * elements on the main canvas after a delay.
@@ -408,9 +439,9 @@ class Zombie {
     const yStart = Math.max(0, yBody - searchSize);
     const yEnd = Math.min(height - 1, yBody + searchSize);
 
-    var iBase = yStart * width;
-    for (var y = yStart; y < yEnd; y++) {
-      for (var x = xStart; x < xEnd; x++) {
+    let iBase = yStart * width;
+    for (let y = yStart; y < yEnd; y++) {
+      for (let x = xStart; x < xEnd; x++) {
         const elem = gameImagedata32[iBase + x];
         if (
           elem === ZOMBIE ||
@@ -459,7 +490,12 @@ class Zombie {
    * Utility method to create the physics simulation elements
    * for the zombie soft body.
    */
-  static createZombieSoftBody(x, y, scale, collisionGroup) {
+  static createZombieSoftBody(
+    x: number,
+    y: number,
+    scale: number,
+    collisionGroup: number
+  ): any {
     const headSize = 6 * scale;
     const chestWidth = 2 * scale;
     const chestHeight = 25 * scale;
@@ -483,7 +519,7 @@ class Zombie {
      * =====================================
      */
 
-    var head = Matter.Bodies.circle(
+    const head = Matter.Bodies.circle(
       x,
       y - chestHeight / 2.0 - headSize,
       headSize,
@@ -500,11 +536,11 @@ class Zombie {
         label: "head",
         density: upperBodyDensity,
       }
-    );
+    ) as ExtendedBody;
 
     const chestX = x;
     const chestY = y;
-    var chest = Matter.Bodies.rectangle(
+    const chest = Matter.Bodies.rectangle(
       chestX,
       chestY,
       chestWidth,
@@ -519,19 +555,24 @@ class Zombie {
         density: upperBodyDensity,
         label: "chest",
       }
-    );
+    ) as ExtendedBody;
 
     /* Used for collisions with elements on the main canvas */
-    var neck = Matter.Bodies.circle(chestX, chestY - chestHeight / 2.0, 1, {
-      collisionFilter: {
-        group: collisionGroup,
-      },
-      label: "neck",
-      density: 0.000000001,
-    });
+    const neck = Matter.Bodies.circle(
+      chestX,
+      chestY - chestHeight / 2.0,
+      1,
+      {
+        collisionFilter: {
+          group: collisionGroup,
+        },
+        label: "neck",
+        density: 0.000000001,
+      }
+    ) as ExtendedBody;
 
     /* Used for collisions with elements on the main canvas */
-    var midChestLeft = Matter.Bodies.circle(
+    const midChestLeft = Matter.Bodies.circle(
       chestX - chestWidth / 2.0,
       chestY,
       1,
@@ -542,10 +583,10 @@ class Zombie {
         label: "midChestLeft",
         density: 0.000000001,
       }
-    );
+    ) as ExtendedBody;
 
     /* Used for collisions with elements on the main canvas */
-    var midChestRight = Matter.Bodies.circle(
+    const midChestRight = Matter.Bodies.circle(
       chestX + chestWidth / 2.0,
       chestY,
       1,
@@ -556,9 +597,9 @@ class Zombie {
         label: "midChestRight",
         density: 0.000000001,
       }
-    );
+    ) as ExtendedBody;
 
-    var rightUpperArm = Matter.Bodies.rectangle(
+    const rightUpperArm = Matter.Bodies.rectangle(
       x + chestWidth / 2.0 + armWidth / 2.0,
       y - chestHeight / 2.0 + upperArmHeight + 1 * scale,
       armWidth,
@@ -572,12 +613,12 @@ class Zombie {
         },
         density: upperBodyDensity,
       }
-    );
+    ) as ExtendedBody;
 
     const rightLowerArmX = x + chestWidth / 2.0 + armWidth / 2.0;
     const rightLowerArmY =
       y - chestHeight / 2.0 + upperArmHeight + lowerArmHeight;
-    var rightLowerArm = Matter.Bodies.rectangle(
+    const rightLowerArm = Matter.Bodies.rectangle(
       rightLowerArmX,
       rightLowerArmY,
       armWidth,
@@ -591,9 +632,9 @@ class Zombie {
         },
         density: upperBodyDensity,
       }
-    );
+    ) as ExtendedBody;
 
-    var leftUpperArm = Matter.Bodies.rectangle(
+    const leftUpperArm = Matter.Bodies.rectangle(
       x - chestWidth / 2.0 - armWidth / 2.0,
       y - chestHeight / 2.0 + upperArmHeight + 1 * scale,
       armWidth,
@@ -607,12 +648,12 @@ class Zombie {
         },
         density: upperBodyDensity,
       }
-    );
+    ) as ExtendedBody;
 
     const leftLowerArmX = x - chestWidth / 2.0 - armWidth / 2.0;
     const leftLowerArmY =
       y - chestHeight / 2.0 + upperArmHeight + lowerArmHeight;
-    var leftLowerArm = Matter.Bodies.rectangle(
+    const leftLowerArm = Matter.Bodies.rectangle(
       leftLowerArmX,
       leftLowerArmY,
       armWidth,
@@ -626,10 +667,10 @@ class Zombie {
         },
         density: upperBodyDensity,
       }
-    );
+    ) as ExtendedBody;
 
     /* Used for collisions with elements on the main canvas */
-    var rightHand = Matter.Bodies.circle(
+    const rightHand = Matter.Bodies.circle(
       rightLowerArmX,
       rightLowerArmY + lowerArmHeight / 2,
       1,
@@ -640,10 +681,10 @@ class Zombie {
         label: "rightHand",
         density: 0.000000001,
       }
-    );
+    ) as ExtendedBody;
 
     /* Used for collisions with elements on the main canvas */
-    var leftHand = Matter.Bodies.circle(
+    const leftHand = Matter.Bodies.circle(
       leftLowerArmX,
       leftLowerArmY + lowerArmHeight / 2,
       1,
@@ -654,9 +695,9 @@ class Zombie {
         label: "leftHand",
         density: 0.000000001,
       }
-    );
+    ) as ExtendedBody;
 
-    var leftUpperLeg = Matter.Bodies.rectangle(
+    const leftUpperLeg = Matter.Bodies.rectangle(
       x - chestWidth / 3.0,
       y + chestHeight / 2.0 + upperLegHeight / 2.0,
       legWidth,
@@ -669,12 +710,12 @@ class Zombie {
           radius: legWidth / 2.0,
         },
       }
-    );
+    ) as ExtendedBody;
 
     const leftLowerLegX = x - chestWidth / 3.0;
     const leftLowerLegY =
       y + chestHeight / 2.0 + upperLegHeight + lowerLegHeight / 2.0;
-    var leftLowerLeg = Matter.Bodies.rectangle(
+    const leftLowerLeg = Matter.Bodies.rectangle(
       leftLowerLegX,
       leftLowerLegY,
       legWidth,
@@ -688,9 +729,9 @@ class Zombie {
         },
         label: "leftLowerLeg",
       }
-    );
+    ) as ExtendedBody;
 
-    var rightUpperLeg = Matter.Bodies.rectangle(
+    const rightUpperLeg = Matter.Bodies.rectangle(
       x + chestWidth / 3.0,
       y + chestHeight / 2.0 + upperLegHeight / 2.0,
       legWidth,
@@ -703,12 +744,12 @@ class Zombie {
           radius: legWidth / 2.0,
         },
       }
-    );
+    ) as ExtendedBody;
 
     const rightLowerLegX = x + chestWidth / 3.0;
     const rightLowerLegY =
       y + chestHeight / 2.0 + upperLegHeight + lowerLegHeight / 2.0;
-    var rightLowerLeg = Matter.Bodies.rectangle(
+    const rightLowerLeg = Matter.Bodies.rectangle(
       rightLowerLegX,
       rightLowerLegY,
       legWidth,
@@ -722,10 +763,10 @@ class Zombie {
         },
         label: "rightLowerLeg",
       }
-    );
+    ) as ExtendedBody;
 
     /* Used for collisions with elements on the main canvas */
-    var rightFoot = Matter.Bodies.circle(
+    const rightFoot = Matter.Bodies.circle(
       rightLowerLegX,
       rightLowerLegY + lowerLegHeight / 2,
       1,
@@ -736,10 +777,10 @@ class Zombie {
         label: "rightFoot",
         density: 0.000000001,
       }
-    );
+    ) as ExtendedBody;
 
     /* Used for collisions with elements on the main canvas */
-    var leftFoot = Matter.Bodies.circle(
+    const leftFoot = Matter.Bodies.circle(
       leftLowerLegX,
       leftLowerLegY + lowerLegHeight / 2,
       1,
@@ -750,7 +791,7 @@ class Zombie {
         label: "leftFoot",
         density: 0.000000001,
       }
-    );
+    ) as ExtendedBody;
 
     /*
      * ===================================================================
@@ -758,7 +799,7 @@ class Zombie {
      * ===================================================================
      */
 
-    var chestToNeck = Matter.Constraint.create({
+    const chestToNeck = Matter.Constraint.create({
       bodyA: chest,
       pointA: {
         x: 0,
@@ -773,7 +814,7 @@ class Zombie {
       length: 0,
     });
 
-    var midChestLeftToChest = Matter.Constraint.create({
+    const midChestLeftToChest = Matter.Constraint.create({
       bodyA: chest,
       pointA: {
         x: -chestWidth / 2.0,
@@ -788,7 +829,7 @@ class Zombie {
       length: 0,
     });
 
-    var midChestRightToChest = Matter.Constraint.create({
+    const midChestRightToChest = Matter.Constraint.create({
       bodyA: chest,
       pointA: {
         x: chestWidth / 2.0,
@@ -803,7 +844,7 @@ class Zombie {
       length: 0,
     });
 
-    var chestToRightUpperArm = Matter.Constraint.create({
+    const chestToRightUpperArm = Matter.Constraint.create({
       bodyA: chest,
       pointA: {
         x: chestWidth / 2.0,
@@ -819,7 +860,7 @@ class Zombie {
       damping: 0.2,
     });
 
-    var chestToLeftUpperArm = Matter.Constraint.create({
+    const chestToLeftUpperArm = Matter.Constraint.create({
       bodyA: chest,
       pointA: {
         x: -chestWidth / 2.0,
@@ -835,7 +876,7 @@ class Zombie {
       damping: 0.2,
     });
 
-    var leftArmAngle = Matter.Constraint.create({
+    const leftArmAngle = Matter.Constraint.create({
       bodyA: chest,
       pointA: {
         x: -chestWidth / 2.0 - chestWidth / 2.0 - armWidth,
@@ -851,7 +892,7 @@ class Zombie {
       damping: 0.2,
     });
 
-    var rightArmAngle = Matter.Constraint.create({
+    const rightArmAngle = Matter.Constraint.create({
       bodyA: chest,
       pointA: {
         x: chestWidth / 2.0 + chestWidth / 2.0 + armWidth,
@@ -867,7 +908,7 @@ class Zombie {
       damping: 0.2,
     });
 
-    var chestToLeftUpperLeg = Matter.Constraint.create({
+    const chestToLeftUpperLeg = Matter.Constraint.create({
       bodyA: chest,
       pointA: {
         x: -chestWidth / 6.0,
@@ -882,7 +923,7 @@ class Zombie {
       length: 0,
     });
 
-    var chestToRightUpperLeg = Matter.Constraint.create({
+    const chestToRightUpperLeg = Matter.Constraint.create({
       bodyA: chest,
       pointA: {
         x: chestWidth / 6.0,
@@ -897,7 +938,7 @@ class Zombie {
       length: 0,
     });
 
-    var leftLegAngle = Matter.Constraint.create({
+    const leftLegAngle = Matter.Constraint.create({
       bodyA: chest,
       pointA: {
         x: -chestWidth * 1.5,
@@ -912,7 +953,7 @@ class Zombie {
       length: 0,
     });
 
-    var rightLegAngle = Matter.Constraint.create({
+    const rightLegAngle = Matter.Constraint.create({
       bodyA: chest,
       pointA: {
         x: chestWidth * 1.5,
@@ -927,7 +968,7 @@ class Zombie {
       length: 0,
     });
 
-    var upperToLowerRightArm = Matter.Constraint.create({
+    const upperToLowerRightArm = Matter.Constraint.create({
       bodyA: rightUpperArm,
       pointA: {
         x: 0,
@@ -942,7 +983,7 @@ class Zombie {
       length: 0,
     });
 
-    var upperToLowerLeftArm = Matter.Constraint.create({
+    const upperToLowerLeftArm = Matter.Constraint.create({
       bodyA: leftUpperArm,
       pointA: {
         x: 0,
@@ -957,7 +998,7 @@ class Zombie {
       length: 0,
     });
 
-    var rightArmToHand = Matter.Constraint.create({
+    const rightArmToHand = Matter.Constraint.create({
       bodyA: rightLowerArm,
       pointA: {
         x: 0,
@@ -972,7 +1013,7 @@ class Zombie {
       length: 0,
     });
 
-    var leftArmToHand = Matter.Constraint.create({
+    const leftArmToHand = Matter.Constraint.create({
       bodyA: leftLowerArm,
       pointA: {
         x: 0,
@@ -987,7 +1028,7 @@ class Zombie {
       length: 0,
     });
 
-    var upperToLowerLeftLeg = Matter.Constraint.create({
+    const upperToLowerLeftLeg = Matter.Constraint.create({
       bodyA: leftUpperLeg,
       pointA: {
         x: 0,
@@ -1003,7 +1044,7 @@ class Zombie {
       damping: 0.2,
     });
 
-    var upperToLowerRightLeg = Matter.Constraint.create({
+    const upperToLowerRightLeg = Matter.Constraint.create({
       bodyA: rightUpperLeg,
       pointA: {
         x: 0,
@@ -1019,7 +1060,7 @@ class Zombie {
       damping: 0.2,
     });
 
-    var rightLegToFoot = Matter.Constraint.create({
+    const rightLegToFoot = Matter.Constraint.create({
       bodyA: rightLowerLeg,
       pointA: {
         x: 0,
@@ -1034,7 +1075,7 @@ class Zombie {
       length: 0,
     });
 
-    var leftLegToFoot = Matter.Constraint.create({
+    const leftLegToFoot = Matter.Constraint.create({
       bodyA: leftLowerLeg,
       pointA: {
         x: 0,
@@ -1049,7 +1090,7 @@ class Zombie {
       length: 0,
     });
 
-    var interKneeStiffness = Matter.Constraint.create({
+    const interKneeStiffness = Matter.Constraint.create({
       bodyA: leftUpperLeg,
       pointA: {
         x: 0,
@@ -1065,7 +1106,7 @@ class Zombie {
       damping: 0.2,
     });
 
-    var interFootStiffness = Matter.Constraint.create({
+    const interFootStiffness = Matter.Constraint.create({
       bodyA: leftLowerLeg,
       pointA: {
         x: 0,
@@ -1080,7 +1121,7 @@ class Zombie {
       length: legWidth * 7,
     });
 
-    var leftLegStraightness = Matter.Constraint.create({
+    const leftLegStraightness = Matter.Constraint.create({
       bodyA: leftUpperLeg,
       pointA: {
         x: 0,
@@ -1096,7 +1137,7 @@ class Zombie {
       damping: 0.2,
     });
 
-    var rightLegStraightness = Matter.Constraint.create({
+    const rightLegStraightness = Matter.Constraint.create({
       bodyA: rightUpperLeg,
       pointA: {
         x: 0,
@@ -1113,7 +1154,7 @@ class Zombie {
     });
 
     /* Keep the head close to the body */
-    var headContraint = Matter.Constraint.create({
+    const headContraint = Matter.Constraint.create({
       bodyA: head,
       pointA: {
         x: 0,
@@ -1130,7 +1171,7 @@ class Zombie {
     });
 
     /* Keep the head upright rather than falling to the side */
-    var headUpright = Matter.Constraint.create({
+    const headUpright = Matter.Constraint.create({
       bodyA: head,
       pointA: {
         x: 0,
@@ -1151,7 +1192,7 @@ class Zombie {
      * the composite entity that represents an individual zombie.
      */
 
-    var zombie = Matter.Composite.create({
+    const zombie = Matter.Composite.create({
       bodies: [
         head /* order the head first to make it easy to find */,
         chest,
@@ -1201,8 +1242,8 @@ class Zombie {
     });
 
     const numBodies = zombie.bodies.length;
-    for (var i = 0; i < numBodies; i++) {
-      var body = zombie.bodies[i];
+    for (let i = 0; i < numBodies; i++) {
+      const body = zombie.bodies[i] as ExtendedBody;
 
       body.__isHead = body === head;
 

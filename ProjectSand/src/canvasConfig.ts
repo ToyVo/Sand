@@ -17,20 +17,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-const __max_width = 560;
-const __max_height = 480;
-
 /* Need to use a smaller size when on mobile devices with small screens */
-export const width = Math.min(__max_width, Math.max(screen.width - 6, 1));
-export const height = Math.min(
-  __max_height,
-  Math.max(screen.height - 200, 100)
-);
+export const width: number = Math.max(window.innerWidth, 1);
+export const height: number = Math.max(window.innerHeight - 150, 100);
 
-export const MAX_FPS = 120;
-export const DEFAULT_FPS = 60;
+export const MAX_FPS: number = 120;
+export const DEFAULT_FPS: number = 60;
 
-export const MAX_NUM_PARTICLES = 1000;
+export const MAX_NUM_PARTICLES: number = 1000;
 
 /*
  * The zombie animation speed is tied to the FPS setting of the game;
@@ -40,6 +34,7 @@ export const MAX_NUM_PARTICLES = 1000;
  * to how much it can simulate in each step, so the following value should
  * not be made too large.
  */
-export const ZOMBIE_ANIMATION_SPEED = 12;
+export const ZOMBIE_ANIMATION_SPEED: number = 12;
 
-export const MAX_ZOMBIES = 60;
+export const MAX_ZOMBIES: number = 60;
+
