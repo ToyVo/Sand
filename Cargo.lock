@@ -1853,6 +1853,10 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_egui",
+ "bincode",
+ "glam",
+ "rand 0.8.5",
+ "serde",
 ]
 
 [[package]]

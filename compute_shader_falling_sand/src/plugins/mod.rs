@@ -1,4 +1,4 @@
-use crate::systems::{init_falling_sand_pipeline, prepare_bind_group};
+use crate::systems::{init_falling_sand_pipeline, prepare_bind_group, ClearGrid, SimulationSpeed, SimulationFrameAccumulator};
 use crate::{SHADER_ASSET_PATH, SIZE, WORKGROUP_SIZE};
 use bevy::{
     prelude::*,
@@ -21,17 +21,27 @@ pub struct FallingSandLabel;
 pub struct FallingSandImages {
     pub texture_a: Handle<Image>,
     pub texture_b: Handle<Image>,
+    pub element_type_a: Handle<Image>,
+    pub element_type_b: Handle<Image>,
 }
+
+pub const NUM_SPIGOTS: usize = 4;
 
 #[derive(Resource, Clone, Copy, ExtractResource, ShaderType)]
 pub struct FallingSandUniforms {
-    pub sand_color: LinearRgba,
+    pub sand_color: LinearRgba, // Single color for all regular sand
     pub size: UVec2,
     pub click_position: IVec2,
-    pub continuous_spawn: u32, // 1 = true, 0 = false (WGSL doesn't have bool in uniforms)
+    pub spigot_sizes: UVec4, // 0 = disabled, 1-6 = spigot size
+    pub spigot_elements: UVec4, // 0 = regular sand, 1 = rainbow sand
     pub click_radius: f32,     // Radius of the circle for placing/removing sand
-    pub click_action: u32,     // 0 = no action, 1 = add sand, 2 = remove sand
+    pub click_action: u32,     // 0 = no action, 1 = add element, 2 = remove element
+    pub selected_element: u32, // 0 = sand, 1 = rainbow sand, 2 = wall
+    pub wall_color: LinearRgba,
     pub color_shift_enabled: u32, // 1 = true, 0 = false
+    pub sim_step: u32,         // Simulation step counter for alternating diagonal movement
+    pub overwrite_mode: u32,   // 1 = true, 0 = false - when enabled, drawing overwrites existing materials
+    pub fall_into_void: u32,   // 1 = true, 0 = false - when enabled, elements fall off screen edges
 }
 
 #[derive(Resource)]
@@ -43,6 +53,11 @@ pub struct FallingSandPipeline {
 
 #[derive(Resource)]
 pub struct FallingSandImageBindGroups(pub [BindGroup; 2]);
+
+/// Resource to store how many compute shader runs were executed this frame
+/// Used to update the frame accumulator correctly
+#[derive(Resource, Default)]
+pub struct RunsThisFrame(pub u32);
 
 pub struct FallingSandNode {
     pub state: FallingSandState,
@@ -61,8 +76,15 @@ impl Plugin for FallingSandComputePlugin {
         app.add_plugins((
             ExtractResourcePlugin::<FallingSandImages>::default(),
             ExtractResourcePlugin::<FallingSandUniforms>::default(),
+            ExtractResourcePlugin::<ClearGrid>::default(),
+            ExtractResourcePlugin::<SimulationSpeed>::default(),
         ));
         let render_app = app.sub_app_mut(RenderApp);
+        
+        // Initialize resources in render world BEFORE adding systems
+        render_app.world_mut().insert_resource(SimulationFrameAccumulator::default());
+        render_app.world_mut().insert_resource(RunsThisFrame::default());
+        
         render_app
             .add_systems(RenderStartup, init_falling_sand_pipeline)
             .add_systems(
@@ -86,6 +108,40 @@ impl Default for FallingSandNode {
 
 impl render_graph::Node for FallingSandNode {
     fn update(&mut self, world: &mut World) {
+        // Update frame accumulator based on simulation speed first
+        // (do this before accessing other resources to avoid borrow conflicts)
+        let simulation_speed = world.get_resource::<SimulationSpeed>()
+            .map(|s| s.0)
+            .unwrap_or(1.0);
+        
+        // Initialize resources if they don't exist (shouldn't happen, but be safe)
+        if !world.contains_resource::<SimulationFrameAccumulator>() {
+            world.insert_resource(SimulationFrameAccumulator::default());
+        }
+        if !world.contains_resource::<RunsThisFrame>() {
+            world.insert_resource(RunsThisFrame::default());
+        }
+        
+        let runs_this_frame = if simulation_speed > 0.0 {
+            let mut frame_accumulator = world.resource_mut::<SimulationFrameAccumulator>();
+            frame_accumulator.0 += simulation_speed;
+            
+            // Determine how many runs we'll do this frame and subtract from accumulator
+            let runs = frame_accumulator.0.floor().min(10.0) as u32; // Limit to 10 runs per frame
+            frame_accumulator.0 -= runs as f32;
+            runs
+        } else {
+            // Paused - reset accumulator
+            let mut frame_accumulator = world.resource_mut::<SimulationFrameAccumulator>();
+            frame_accumulator.0 = 0.0;
+            0
+        };
+        
+        // Store the number of runs to do this frame
+        let mut runs_resource = world.resource_mut::<RunsThisFrame>();
+        runs_resource.0 = runs_this_frame;
+        
+        // Now access other resources
         let pipeline = world.resource::<FallingSandPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
@@ -105,6 +161,14 @@ impl render_graph::Node for FallingSandNode {
                 }
             }
             FallingSandState::Init => {
+                // Check if we're clearing the grid
+                if let Some(clear_grid) = world.get_resource::<ClearGrid>() {
+                    if clear_grid.0 {
+                        // Stay in Init state to clear, but reset the flag
+                        // The flag will be reset by a system after the init shader runs
+                        return;
+                    }
+                }
                 if let CachedPipelineState::Ok(_) =
                     pipeline_cache.get_compute_pipeline_state(pipeline.update_pipeline)
                 {
@@ -112,9 +176,25 @@ impl render_graph::Node for FallingSandNode {
                 }
             }
             FallingSandState::Update(0) => {
+                // Check if we need to clear the grid
+                if let Some(clear_grid) = world.get_resource::<ClearGrid>() {
+                    if clear_grid.0 {
+                        // Reset to Init state to clear the grid
+                        self.state = FallingSandState::Init;
+                        return;
+                    }
+                }
                 self.state = FallingSandState::Update(1);
             }
             FallingSandState::Update(1) => {
+                // Check if we need to clear the grid
+                if let Some(clear_grid) = world.get_resource::<ClearGrid>() {
+                    if clear_grid.0 {
+                        // Reset to Init state to clear the grid
+                        self.state = FallingSandState::Init;
+                        return;
+                    }
+                }
                 self.state = FallingSandState::Update(0);
             }
             FallingSandState::Update(_) => unreachable!(),
@@ -130,29 +210,50 @@ impl render_graph::Node for FallingSandNode {
         let bind_groups = &world.resource::<FallingSandImageBindGroups>().0;
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = world.resource::<FallingSandPipeline>();
+        
+        // Get simulation speed
+        let simulation_speed = world.get_resource::<SimulationSpeed>()
+            .map(|s| s.0)
+            .unwrap_or(1.0);
+        
+        // Handle simulation speed: only run when we've accumulated >= 1.0
+        // Speed 0.0 = paused (never run)
+        // Speed 1.0 = normal (run every frame)
+        // Speed 2.0 = 2x (run twice per frame)
+        if simulation_speed <= 0.0 {
+            return Ok(()); // Paused
+        }
+        
+        // Get how many runs to do this frame (determined in update())
+        let runs_this_frame = world.get_resource::<RunsThisFrame>()
+            .map(|r| r.0)
+            .unwrap_or(0);
+        
+        // Run the compute shader the determined number of times
+        for _ in 0..runs_this_frame {
+            let mut pass = render_context
+                .command_encoder()
+                .begin_compute_pass(&ComputePassDescriptor::default());
 
-        let mut pass = render_context
-            .command_encoder()
-            .begin_compute_pass(&ComputePassDescriptor::default());
-
-        // select the pipeline based on the current state
-        match self.state {
-            FallingSandState::Loading => {}
-            FallingSandState::Init => {
-                let init_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.init_pipeline)
-                    .unwrap();
-                pass.set_bind_group(0, &bind_groups[0], &[]);
-                pass.set_pipeline(init_pipeline);
-                pass.dispatch_workgroups(SIZE.x / WORKGROUP_SIZE, SIZE.y / WORKGROUP_SIZE, 1);
-            }
-            FallingSandState::Update(index) => {
-                let update_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.update_pipeline)
-                    .unwrap();
-                pass.set_bind_group(0, &bind_groups[index], &[]);
-                pass.set_pipeline(update_pipeline);
-                pass.dispatch_workgroups(SIZE.x / WORKGROUP_SIZE, SIZE.y / WORKGROUP_SIZE, 1);
+            // select the pipeline based on the current state
+            match self.state {
+                FallingSandState::Loading => {}
+                FallingSandState::Init => {
+                    let init_pipeline = pipeline_cache
+                        .get_compute_pipeline(pipeline.init_pipeline)
+                        .unwrap();
+                    pass.set_bind_group(0, &bind_groups[0], &[]);
+                    pass.set_pipeline(init_pipeline);
+                    pass.dispatch_workgroups(SIZE.x / WORKGROUP_SIZE, SIZE.y / WORKGROUP_SIZE, 1);
+                }
+                FallingSandState::Update(index) => {
+                    let update_pipeline = pipeline_cache
+                        .get_compute_pipeline(pipeline.update_pipeline)
+                        .unwrap();
+                    pass.set_bind_group(0, &bind_groups[index], &[]);
+                    pass.set_pipeline(update_pipeline);
+                    pass.dispatch_workgroups(SIZE.x / WORKGROUP_SIZE, SIZE.y / WORKGROUP_SIZE, 1);
+                }
             }
         }
 

@@ -1,5 +1,6 @@
 pub mod plugins;
 pub mod systems;
+pub mod elements;
 
 pub const SHADER_ASSET_PATH: &str = "falling_sand.wgsl";
 pub const DISPLAY_FACTOR: u32 = 2;

@@ -30,6 +30,9 @@ fn main() {
         .add_systems(
             Update,
             (
+                systems::increment_sim_step,
+                systems::reset_clear_grid_flag,
+                systems::sync_ui_settings_to_uniforms,
                 systems::switch_textures,
                 systems::handle_mouse_clicks,
                 systems::handle_mouse_scroll,

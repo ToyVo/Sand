@@ -21,36 +21,6 @@ pub struct FallingSandImages {
     pub texture_b: Handle<Image>,
 }
 
-#[derive(Resource, Clone, Copy, ExtractResource, ShaderType)]
-pub struct FallingSandUniforms {
-    pub draw_color: LinearRgba, // Color for drawing (encoded element)
-    pub size: UVec2,
-    pub click_position: IVec2,
-    pub click_radius: f32,     // Radius of the circle for placing/removing sand
-    pub click_action: u32,     // 0 = no action, 1 = add element, 2 = remove element
-    pub color_shift_enabled: u32, // 1 = true, 0 = false
-    pub selected_element: u32, // Element type index for drawing
-    pub fall_into_void: u32,   // 1 = true, 0 = false - elements disappear at bottom edge
-    pub overwrite_mode: u32,   // 1 = true, 0 = false - overwrite existing elements when clicking
-    // Spigot data (4 spigots)
-    pub spigot_0_x: u32,
-    pub spigot_0_width: u32,
-    pub spigot_0_color: LinearRgba,
-    pub spigot_0_enabled: u32,
-    pub spigot_1_x: u32,
-    pub spigot_1_width: u32,
-    pub spigot_1_color: LinearRgba,
-    pub spigot_1_enabled: u32,
-    pub spigot_2_x: u32,
-    pub spigot_2_width: u32,
-    pub spigot_2_color: LinearRgba,
-    pub spigot_2_enabled: u32,
-    pub spigot_3_x: u32,
-    pub spigot_3_width: u32,
-    pub spigot_3_color: LinearRgba,
-    pub spigot_3_enabled: u32,
-}
-
 #[derive(Resource)]
 pub struct FallingSandPipeline {
     pub texture_bind_group_layout: BindGroupLayout,

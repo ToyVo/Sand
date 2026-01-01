@@ -7,7 +7,7 @@
 )]
 
 use crate::plugins::{
-    FallingSandImageBindGroups, FallingSandImages, FallingSandPipeline, FallingSandUniforms,
+    FallingSandImageBindGroups, FallingSandImages, FallingSandPipeline, FallingSandUniforms, NUM_SPIGOTS,
 };
 use crate::{DISPLAY_FACTOR, SHADER_ASSET_PATH, SIZE};
 use bevy::{
@@ -28,14 +28,63 @@ use bevy::{
 };
 use bevy_egui::{EguiContexts, egui};
 use std::borrow::Cow;
+use bevy::render::extract_resource::ExtractResource;
+use crate::elements::Element;
+
+/// Resource to signal that the grid should be cleared
+#[derive(Resource, Default, Clone, Copy, ExtractResource)]
+pub struct ClearGrid(pub bool);
+
+/// Resource to track simulation speed (0.0 = paused, 1.0 = normal, 2.0 = 2x speed)
+#[derive(Resource, Clone, Copy, ExtractResource)]
+pub struct SimulationSpeed(pub f32);
+
+/// Resource to track accumulated simulation frames for speed control
+#[derive(Resource, Default)]
+pub struct SimulationFrameAccumulator(pub f32);
+
+impl Default for SimulationSpeed {
+    fn default() -> Self {
+        Self(1.0) // Normal speed by default
+    }
+}
+
+/// Resource to track whether to overwrite existing materials when drawing
+#[derive(Resource, Clone, Copy)]
+pub struct OverwriteMode(pub bool);
+
+impl Default for OverwriteMode {
+    fn default() -> Self {
+        Self(true) // Overwrite by default
+    }
+}
+
+/// Resource to track whether elements fall into the void or stop at edges
+#[derive(Resource, Clone, Copy)]
+pub struct FallIntoVoid(pub bool);
+
+impl Default for FallIntoVoid {
+    fn default() -> Self {
+        Self(false) // Don't fall into void by default
+    }
+}
 
 pub fn setup(mut commands: Commands, mut image_assets: ResMut<Assets<Image>>) {
+    // Color textures (rgba32float)
     let mut image = Image::new_target_texture(SIZE.x, SIZE.y, TextureFormat::Rgba32Float);
     image.asset_usage = RenderAssetUsages::RENDER_WORLD;
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
     let texture_a_handle = image_assets.add(image.clone());
     let texture_b_handle = image_assets.add(image);
+    
+    // Element type textures (r32uint - stores element type ID: 0=background, 1=wall, 2=sand, 3=rainbow_sand)
+    let mut element_type_image = Image::new_target_texture(SIZE.x, SIZE.y, TextureFormat::R32Uint);
+    element_type_image.asset_usage = RenderAssetUsages::RENDER_WORLD;
+    element_type_image.texture_descriptor.usage =
+        TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
+    let element_type_a_handle = image_assets.add(element_type_image.clone());
+    let element_type_b_handle = image_assets.add(element_type_image);
 
     commands.spawn((
         Sprite {
@@ -51,63 +100,193 @@ pub fn setup(mut commands: Commands, mut image_assets: ResMut<Assets<Image>>) {
     commands.insert_resource(FallingSandImages {
         texture_a: texture_a_handle,
         texture_b: texture_b_handle,
+        element_type_a: element_type_a_handle,
+        element_type_b: element_type_b_handle,
     });
 
     commands.insert_resource(FallingSandUniforms {
-        sand_color: LinearRgba::rgb(0.76, 0.70, 0.50), // Sandy color
+        sand_color: LinearRgba::rgb(0.76, 0.70, 0.50), // Single sandy color for all regular sand
         size: SIZE,
         click_position: IVec2::new(-1, -1), // -1 means no click
-        continuous_spawn: 1,                // Enable continuous spawning by default (1 = true)
+        spigot_sizes: UVec4::new(3, 3, 3, 3).into(),
+        spigot_elements: UVec4::new(Element::RainbowSand as u32, Element::RainbowSand as u32, Element::RainbowSand as u32, Element::RainbowSand as u32).into(),
         click_radius: 5.0,                  // Default radius
         click_action: 0,                    // 0 = no action
+        selected_element: 0,                 // 0 = sand
+        wall_color: LinearRgba::rgb(0.5, 0.5, 0.5), // Gray wall color
         color_shift_enabled: 1,             // Enabled by default
+        sim_step: 0,                        // Start at step 0
+        overwrite_mode: 1,                  // Overwrite by default
+        fall_into_void: 0,                  // Don't fall into void by default
     });
+    
+    // Initialize simulation speed and clear grid resources
+    commands.insert_resource(SimulationSpeed::default());
+    commands.insert_resource(ClearGrid::default());
+    commands.insert_resource(OverwriteMode::default());
+    commands.insert_resource(FallIntoVoid::default());
+    commands.insert_resource(Element::RainbowSand);
 }
 
 /// UI system for the egui controls window.
 ///
 /// # Errors
 /// Returns an error if the egui context cannot be accessed.
-pub fn ui_system(mut contexts: EguiContexts, mut uniforms: ResMut<FallingSandUniforms>) -> Result {
+pub fn ui_system(
+    mut contexts: EguiContexts,
+    mut uniforms: ResMut<FallingSandUniforms>,
+    mut clear_grid: ResMut<ClearGrid>,
+    mut simulation_speed: ResMut<SimulationSpeed>,
+    mut overwrite_mode: ResMut<OverwriteMode>,
+    mut fall_into_void: ResMut<FallIntoVoid>,
+    mut selected_element: ResMut<Element>,
+) -> Result {
     egui::Window::new("Controls").show(contexts.ctx_mut()?, |ui| {
-        let mut continuous_spawn = uniforms.continuous_spawn == 1;
-        if ui
-            .checkbox(&mut continuous_spawn, "Continuous Spawn")
-            .changed()
-        {
-            uniforms.continuous_spawn = u32::from(continuous_spawn);
+        // Element selection buttons
+        ui.label("Selected Element:");
+        ui.horizontal(|ui| {
+            let sand_selected = *selected_element == Element::Sand;
+            if ui.selectable_label(sand_selected, "Sand").clicked() {
+                *selected_element = Element::Sand;
+                uniforms.selected_element = Element::Sand.index();
+            }
+            
+            let rainbow_selected = *selected_element == Element::RainbowSand;
+            if ui.selectable_label(rainbow_selected, "Rainbow Sand").clicked() {
+                *selected_element = Element::RainbowSand;
+                uniforms.selected_element = Element::RainbowSand.index();
+            }
+            
+            let wall_selected = *selected_element == Element::Wall;
+            if ui.selectable_label(wall_selected, "Wall").clicked() {
+                *selected_element = Element::Wall;
+                uniforms.selected_element = Element::Wall.index();
+            }
+        });
+        
+        ui.separator();
+
+        // Draw radius slider
+        ui.horizontal(|ui| {
+            ui.label("Draw Radius:");
+            let mut radius = uniforms.click_radius;
+            if ui.add(egui::Slider::new(&mut radius, 1.0..=50.0)).changed() {
+                uniforms.click_radius = radius;
+            }
+        });
+
+        ui.separator();
+
+        // Fall into void toggle
+        let mut fall_void = fall_into_void.0;
+        if ui.checkbox(&mut fall_void, "Fall Into Void").changed() {
+            fall_into_void.0 = fall_void;
+            uniforms.fall_into_void = u32::from(fall_void);
+        }
+        ui.label("When enabled, elements fall off screen edges. When disabled, elements stop at edges.");
+
+        ui.separator();
+
+        // Overwrite mode toggle
+        let mut overwrite = overwrite_mode.0;
+        if ui.checkbox(&mut overwrite, "Overwrite").changed() {
+            overwrite_mode.0 = overwrite;
+            uniforms.overwrite_mode = u32::from(overwrite);
+        }
+        ui.label("When enabled, drawing overwrites existing materials. When disabled, only draws on empty spaces.");
+
+        ui.separator();
+        
+        ui.label("Controls: Left Click = Place Selected Element, Right Click = Remove");
+
+        ui.separator();
+
+        // Simulation speed slider
+        ui.horizontal(|ui| {
+            ui.label("Speed:");
+            let mut speed = simulation_speed.0;
+            if ui.add(egui::Slider::new(&mut speed, 0.0..=2.0)).changed() {
+                simulation_speed.0 = speed;
+            }
+            if speed == 0.0 {
+                ui.label("(Paused)");
+            } else {
+                ui.label(format!("{:.1}x", speed));
+            }
+        });
+        ui.label("0.0 = Paused, 1.0 = Normal Speed, 2.0 = 2x Speed");
+
+        ui.separator();
+
+        ui.separator();
+
+        // Clear button
+        if ui.button("Clear Grid").clicked() {
+            clear_grid.0 = true;
         }
 
         ui.separator();
 
-        ui.label("Sand Color:");
-        // Convert LinearRgba to egui::Color32 (sRGB)
-        // LinearRgba stores linear RGB values (0.0-1.0), convert to sRGB for display
-        let linear = uniforms.sand_color;
-        let mut color32 = egui::Color32::from_rgba_unmultiplied(
-            (linear.red * 255.0).clamp(0.0, 255.0) as u8,
-            (linear.green * 255.0).clamp(0.0, 255.0) as u8,
-            (linear.blue * 255.0).clamp(0.0, 255.0) as u8,
-            255,
-        );
-
-        if ui.color_edit_button_srgba(&mut color32).changed() {
-            // Convert back from Color32 to LinearRgba
-            let r = f32::from(color32.r()) / 255.0;
-            let g = f32::from(color32.g()) / 255.0;
-            let b = f32::from(color32.b()) / 255.0;
-            uniforms.sand_color = LinearRgba::rgb(r, g, b);
-        }
-
-        ui.separator();
-
-        let mut color_shift = uniforms.color_shift_enabled == 1;
-        if ui
-            .checkbox(&mut color_shift, "Shift Color Over Time")
-            .changed()
-        {
-            uniforms.color_shift_enabled = u32::from(color_shift);
-        }
+        // Spigot controls for each of the 4 spigots
+        ui.collapsing("Spigots", |ui| {
+            let valid_elements = Element::spigot_valid_elements();
+            let element_names = valid_elements.iter().map(|e| format!("{:?}", e)).collect::<Vec<String>>();
+            for i in 0..NUM_SPIGOTS {
+                ui.group(|ui| {
+                    ui.label(format!("Spigot {}", i + 1));
+                    let mut size = match i {
+                        0 => uniforms.spigot_sizes.x as f32,
+                        1 => uniforms.spigot_sizes.y as f32,
+                        2 => uniforms.spigot_sizes.z as f32,
+                        3 => uniforms.spigot_sizes.w as f32,
+                        _ => unreachable!(),
+                    };
+                    if ui.add(egui::Slider::new(&mut size, 0.0..=6.0).step_by(1.0)).changed() {
+                        match i {
+                            0 => uniforms.spigot_sizes.x = size as u32,
+                            1 => uniforms.spigot_sizes.y = size as u32,
+                            2 => uniforms.spigot_sizes.z = size as u32,
+                            3 => uniforms.spigot_sizes.w = size as u32,
+                            _ => unreachable!(),
+                        }
+                    }
+                    let current_size = match i {
+                        0 => uniforms.spigot_sizes.x,
+                        1 => uniforms.spigot_sizes.y,
+                        2 => uniforms.spigot_sizes.z,
+                        3 => uniforms.spigot_sizes.w,
+                        _ => unreachable!(),
+                    };
+                    if current_size == 0 {
+                        ui.label("(Size 0 = disabled)");
+                    } else {
+                        let current_element = Element::from_index(match i {
+                            0 => uniforms.spigot_elements.x,
+                            1 => uniforms.spigot_elements.y,
+                            2 => uniforms.spigot_elements.z,
+                            3 => uniforms.spigot_elements.w,
+                            _ => unreachable!(),
+                        });
+                        let current_idx = valid_elements.iter().position(|&e| e == current_element).unwrap_or(0);
+                        egui::ComboBox::from_id_salt(format!("spigot_{}_element", i))
+                            .selected_text(&element_names[current_idx])
+                            .show_ui(ui, |ui| {
+                                for (idx, element) in valid_elements.iter().enumerate() {
+                                    if ui.selectable_label(idx == current_idx, &element_names[idx]).clicked() {
+                                        match i {
+                                            0 => uniforms.spigot_elements.x = *element as u32,
+                                            1 => uniforms.spigot_elements.y = *element as u32,
+                                            2 => uniforms.spigot_elements.z = *element as u32,
+                                            3 => uniforms.spigot_elements.w = *element as u32,
+                                            _ => unreachable!(),
+                                        }
+                                    }
+                                }
+                            });
+                    }
+                });
+            }
+        });
     });
     Ok(())
 }
@@ -124,6 +303,7 @@ pub fn switch_textures(images: Res<FallingSandImages>, mut sprite: Single<&mut S
 // Handle mouse clicks and convert to texture coordinates
 pub fn handle_mouse_clicks(
     mut uniforms: ResMut<FallingSandUniforms>,
+    selected_element: Res<Element>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
@@ -183,9 +363,12 @@ pub fn handle_mouse_clicks(
         {
             uniforms.click_position = IVec2::new(texture_x, texture_y);
 
-            // Set click action: 1 = add sand (left click), 2 = remove sand (right click)
+            // Set click action: 1 = add element (left click), 2 = remove element (right click)
             if mouse_button_input.pressed(MouseButton::Left) {
                 uniforms.click_action = 1;
+                // Update selected element in uniforms (use index() to map to shader constants)
+                uniforms.selected_element = selected_element.index();
+                // Rainbow sand colors are calculated in the shader based on sim_step/time
             } else if mouse_button_input.pressed(MouseButton::Right) {
                 uniforms.click_action = 2;
             }
@@ -268,32 +451,48 @@ pub fn draw_circle_preview(
     gizmos.circle_2d(world_pos, world_radius, Color::WHITE);
 }
 
-// Shift sand color over time when enabled
-pub fn shift_color_over_time(mut uniforms: ResMut<FallingSandUniforms>, time: Res<Time>) {
-    if uniforms.color_shift_enabled == 0 {
-        return;
+// Color shift is now handled entirely in the shader for rainbow sand
+// Regular sand uses a single consistent color
+pub fn shift_color_over_time(_uniforms: ResMut<FallingSandUniforms>, _time: Res<Time>) {
+    // No longer needed - rainbow sand colors are calculated in the shader based on sim_step
+}
+
+// Increment simulation step each frame for alternating diagonal movement
+// Respects simulation speed: 0.0 = paused (don't increment), > 0.0 = increment
+pub fn increment_sim_step(
+    mut uniforms: ResMut<FallingSandUniforms>,
+    simulation_speed: Res<SimulationSpeed>,
+) {
+    if simulation_speed.0 > 0.0 {
+        // For speeds > 1.0, we could increment multiple times, but that doesn't actually
+        // make the simulation faster, just changes diagonal alternation pattern.
+        // To actually speed up, we'd need to run the compute shader multiple times per frame.
+        uniforms.sim_step = uniforms.sim_step.wrapping_add(1);
     }
+}
 
-    // Use time to cycle through hues
-    // We'll use a sine wave to smoothly cycle through colors
-    let t = time.elapsed_secs() * 0.5; // Speed of color shift (0.5 cycles per second)
+// Reset clear_grid flag after the init shader has run
+pub fn reset_clear_grid_flag(mut clear_grid: ResMut<ClearGrid>) {
+    if clear_grid.0 {
+        // The init shader runs in the render graph, so we reset the flag here
+        // after it's been processed
+        clear_grid.0 = false;
+    }
+}
 
-    // Convert RGB to HSV, shift hue, convert back
-    // For simplicity, we'll cycle through RGB values using sine waves
-    let two_pi = 2.0 * std::f32::consts::PI;
-    let phase_offset = 2.0 * std::f32::consts::PI / 3.0;
-    let r = (t * two_pi).sin().mul_add(0.3, 0.5);
-    let g = (t.mul_add(two_pi, phase_offset)).sin().mul_add(0.3, 0.5);
-    let b = (t.mul_add(two_pi, phase_offset * 2.0))
-        .sin()
-        .mul_add(0.3, 0.5);
-
-    // Clamp values to [0.0, 1.0] and ensure they're bright enough
-    let r = r.clamp(0.2, 1.0);
-    let g = g.clamp(0.2, 1.0);
-    let b = b.clamp(0.2, 1.0);
-
-    uniforms.sand_color = LinearRgba::rgb(r, g, b);
+// Sync overwrite_mode and fall_into_void resources to uniforms
+pub fn sync_ui_settings_to_uniforms(
+    mut uniforms: ResMut<FallingSandUniforms>,
+    overwrite_mode: Res<OverwriteMode>,
+    fall_into_void: Res<FallIntoVoid>,
+) {
+    // Only update if changed to avoid unnecessary writes
+    if uniforms.overwrite_mode != u32::from(overwrite_mode.0) {
+        uniforms.overwrite_mode = u32::from(overwrite_mode.0);
+    }
+    if uniforms.fall_into_void != u32::from(fall_into_void.0) {
+        uniforms.fall_into_void = u32::from(fall_into_void.0);
+    }
 }
 
 /// Prepares the bind groups for the falling sand compute shader.
@@ -311,6 +510,8 @@ pub fn prepare_bind_group(
 ) {
     let view_a = gpu_images.get(&falling_sand_images.texture_a).unwrap();
     let view_b = gpu_images.get(&falling_sand_images.texture_b).unwrap();
+    let element_type_view_a = gpu_images.get(&falling_sand_images.element_type_a).unwrap();
+    let element_type_view_b = gpu_images.get(&falling_sand_images.element_type_b).unwrap();
 
     // Uniform buffer is used here to demonstrate how to set up a uniform in a compute shader
     // Alternatives such as storage buffers or push constants may be more suitable for your use case
@@ -323,6 +524,8 @@ pub fn prepare_bind_group(
         &BindGroupEntries::sequential((
             &view_a.texture_view,
             &view_b.texture_view,
+            &element_type_view_a.texture_view,
+            &element_type_view_b.texture_view,
             &uniform_buffer,
         )),
     );
@@ -332,10 +535,21 @@ pub fn prepare_bind_group(
         &BindGroupEntries::sequential((
             &view_b.texture_view,
             &view_a.texture_view,
+            &element_type_view_b.texture_view,
+            &element_type_view_a.texture_view,
             &uniform_buffer,
         )),
     );
     commands.insert_resource(FallingSandImageBindGroups([bind_group_0, bind_group_1]));
+}
+
+// Initialize the simulation frame accumulator and runs counter in the render world
+pub fn init_simulation_frame_accumulator(mut commands: Commands) {
+    commands.insert_resource(SimulationFrameAccumulator::default());
+    // RunsThisFrame is defined in plugins, but we can't import it directly
+    // Instead, we'll initialize it in the plugin's init system
+    // Actually, let's just initialize it here using the full path
+    commands.insert_resource(crate::plugins::RunsThisFrame::default());
 }
 
 pub fn init_falling_sand_pipeline(
@@ -352,6 +566,8 @@ pub fn init_falling_sand_pipeline(
             (
                 texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::ReadOnly),
                 texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::WriteOnly),
+                texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::ReadOnly),
+                texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
                 uniform_buffer::<FallingSandUniforms>(false),
             ),
         ),
