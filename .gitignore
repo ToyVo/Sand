@@ -1,0 +1,8 @@
+*.bin
+*.log
+*.tsbuildinfo
+.DS_Store
+.idea/
+/target
+dist/
+node_modules/
