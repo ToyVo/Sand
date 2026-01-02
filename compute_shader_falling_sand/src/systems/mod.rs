@@ -105,19 +105,14 @@ pub fn setup(mut commands: Commands, mut image_assets: ResMut<Assets<Image>>) {
     });
 
     commands.insert_resource(FallingSandUniforms {
-        sand_color: LinearRgba::rgb(0.76, 0.70, 0.50), // Single sandy color for all regular sand
         size: SIZE,
         click_position: IVec2::new(-1, -1), // -1 means no click
         spigot_sizes: UVec4::new(3, 3, 3, 3).into(),
         spigot_elements: UVec4::new(Element::RainbowSand as u32, Element::RainbowSand as u32, Element::RainbowSand as u32, Element::RainbowSand as u32).into(),
         click_radius: 5.0,                  // Default radius
-        click_action: 0,                    // 0 = no action
         selected_element: 0,                 // 0 = sand
-        wall_color: LinearRgba::rgb(0.5, 0.5, 0.5), // Gray wall color
-        color_shift_enabled: 1,             // Enabled by default
         sim_step: 0,                        // Start at step 0
-        overwrite_mode: 1,                  // Overwrite by default
-        fall_into_void: 0,                  // Don't fall into void by default
+        bit_field: 1,                  // Overwrite by default
     });
     
     // Initialize simulation speed and clear grid resources
@@ -181,7 +176,8 @@ pub fn ui_system(
         let mut fall_void = fall_into_void.0;
         if ui.checkbox(&mut fall_void, "Fall Into Void").changed() {
             fall_into_void.0 = fall_void;
-            uniforms.fall_into_void = u32::from(fall_void);
+            // fall into void is bit 1 in ((bit_field >> 1u) & 1u), so we need to set or clear that bit
+            uniforms.bit_field = (uniforms.bit_field & !(1u32 << 1u32)) | ((fall_void as u32) << 1u32);
         }
         ui.label("When enabled, elements fall off screen edges. When disabled, elements stop at edges.");
 
@@ -191,7 +187,8 @@ pub fn ui_system(
         let mut overwrite = overwrite_mode.0;
         if ui.checkbox(&mut overwrite, "Overwrite").changed() {
             overwrite_mode.0 = overwrite;
-            uniforms.overwrite_mode = u32::from(overwrite);
+            // overwrite is bit 0 in ((bit_field >> 0u) & 1u), so we need to set or clear that bit
+            uniforms.bit_field = (uniforms.bit_field & !(1u32 << 0u32)) | ((overwrite as u32) << 0u32);
         }
         ui.label("When enabled, drawing overwrites existing materials. When disabled, only draws on empty spaces.");
 
@@ -310,7 +307,6 @@ pub fn handle_mouse_clicks(
     egui_contexts: Option<EguiContexts>,
 ) {
     // Reset click action each frame (shader will check if it's valid)
-    uniforms.click_action = 0;
     uniforms.click_position = IVec2::new(-1, -1);
 
     // Don't process clicks if egui is consuming the input
@@ -361,16 +357,12 @@ pub fn handle_mouse_clicks(
             && texture_y >= 0
             && texture_y < i32::try_from(SIZE.y).unwrap_or(i32::MAX)
         {
-            uniforms.click_position = IVec2::new(texture_x, texture_y);
-
-            // Set click action: 1 = add element (left click), 2 = remove element (right click)
             if mouse_button_input.pressed(MouseButton::Left) {
-                uniforms.click_action = 1;
-                // Update selected element in uniforms (use index() to map to shader constants)
+                uniforms.click_position = IVec2::new(texture_x, texture_y);
                 uniforms.selected_element = selected_element.index();
-                // Rainbow sand colors are calculated in the shader based on sim_step/time
             } else if mouse_button_input.pressed(MouseButton::Right) {
-                uniforms.click_action = 2;
+                uniforms.click_position = IVec2::new(texture_x, texture_y);
+                uniforms.selected_element = Element::Background.index();
             }
         }
     }
@@ -487,11 +479,8 @@ pub fn sync_ui_settings_to_uniforms(
     fall_into_void: Res<FallIntoVoid>,
 ) {
     // Only update if changed to avoid unnecessary writes
-    if uniforms.overwrite_mode != u32::from(overwrite_mode.0) {
-        uniforms.overwrite_mode = u32::from(overwrite_mode.0);
-    }
-    if uniforms.fall_into_void != u32::from(fall_into_void.0) {
-        uniforms.fall_into_void = u32::from(fall_into_void.0);
+    if uniforms.bit_field != u32::from(overwrite_mode.0) << 0u32 | u32::from(fall_into_void.0) << 1u32 {
+        uniforms.bit_field = u32::from(overwrite_mode.0) << 0u32 | u32::from(fall_into_void.0) << 1u32;
     }
 }
 

@@ -29,19 +29,14 @@ pub const NUM_SPIGOTS: usize = 4;
 
 #[derive(Resource, Clone, Copy, ExtractResource, ShaderType)]
 pub struct FallingSandUniforms {
-    pub sand_color: LinearRgba, // Single color for all regular sand
     pub size: UVec2,
     pub click_position: IVec2,
     pub spigot_sizes: UVec4, // 0 = disabled, 1-6 = spigot size
     pub spigot_elements: UVec4, // 0 = regular sand, 1 = rainbow sand
     pub click_radius: f32,     // Radius of the circle for placing/removing sand
-    pub click_action: u32,     // 0 = no action, 1 = add element, 2 = remove element
     pub selected_element: u32, // 0 = sand, 1 = rainbow sand, 2 = wall
-    pub wall_color: LinearRgba,
-    pub color_shift_enabled: u32, // 1 = true, 0 = false
     pub sim_step: u32,         // Simulation step counter for alternating diagonal movement
-    pub overwrite_mode: u32,   // 1 = true, 0 = false - when enabled, drawing overwrites existing materials
-    pub fall_into_void: u32,   // 1 = true, 0 = false - when enabled, elements fall off screen edges
+    pub bit_field: u32,        // Bit field for various flags
 }
 
 #[derive(Resource)]
